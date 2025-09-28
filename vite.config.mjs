@@ -2,9 +2,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   // Base URL for deployment
-  // Change this to your repository name for GitHub Pages
-  // For example: '/stacsearch/' if your repo is https://github.com/username/stacsearch
-  base: '/',
+  // On GitHub Pages project sites, assets must be served from "/<repo>/"
+  // Use CI env to switch base automatically: local/dev -> '/', CI (GitHub Pages) -> '/<repo>/'
+  base: process.env.GITHUB_ACTIONS ? '/stacsearch/' : '/',
   
   build: {
     outDir: 'dist',
