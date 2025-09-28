@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Language" content="en-US">
+    <title>STAC Search Viewer</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header Section -->
+        <header class="header">
+            <h1>STAC Items Search Viewer</h1>
+            <p>Search and visualize STAC items</p>
+        </header>
+
+        <!-- Main Container -->
+        <div class="main-container">
+            <!-- Left Panel - Search Controls -->
+            <aside class="search-panel">
+                <h2>Search Parameters</h2>
+                
+                <div class="form-group">
+                    <label for="provider">Provider:</label>
+                    <select id="provider">
+                        <option value="planetary-computer">Microsoft Planetary Computer</option>
+                        <option value="earth-search">AWS Earth Search</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="collection">Collection:</label>
+                    <select id="collection" title="Select a collection">
+                        <option value="">Select a collection...</option>
+                        <option value="sentinel-2-l2a" title="Sentinel-2 Level-2A Surface Reflectance">Sentinel-2 Level-2A</option>
+                        <option value="landsat-c2-l2" title="Landsat Collection 2 Level-2 Surface Reflectance and Temperature">Landsat Collection 2 L2</option>
+                        <option value="naip" title="National Agriculture Imagery Program - High Resolution Aerial Imagery">NAIP</option>
+                        <option value="aster-l1t" title="ASTER Level 1 Precision Terrain Corrected Registered At-Sensor Radiance">ASTER L1T</option>
+                        <option value="modis-11A1-061" title="MODIS Land Surface Temperature/Emissivity Daily">MODIS LST Daily</option>
+                        <option value="cop-dem-glo-30" title="Copernicus Digital Elevation Model Global 30m">Copernicus DEM 30m</option>
+                        <option value="io-lulc-9-class" title="Impact Observatory Land Use Land Cover 9-Class">IO LULC 9-Class</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="datetime">Date Range:</label>
+                    <div class="date-range">
+                        <input type="date" id="date-from" title="Start date" lang="en-US" placeholder="mm/dd/yyyy">
+                        <span class="date-separator">–</span>
+                        <input type="date" id="date-to" title="End date" lang="en-US" placeholder="mm/dd/yyyy">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="bbox">Bounding Box:</label>
+                    <div class="bbox-inputs">
+                        <div class="bbox-field">
+                            <input type="number" id="bbox-west" placeholder="West" step="0.001">
+                            <select id="bbox-west-hem" title="Longitude hemisphere">
+                                <option value="E" selected>E</option>
+                                <option value="W">W</option>
+                            </select>
+                        </div>
+                        <div class="bbox-field">
+                            <input type="number" id="bbox-south" placeholder="South" step="0.001">
+                            <select id="bbox-south-hem" title="Latitude hemisphere">
+                                <option value="N" selected>N</option>
+                                <option value="S">S</option>
+                            </select>
+                        </div>
+                        <div class="bbox-field">
+                            <input type="number" id="bbox-east" placeholder="East" step="0.001">
+                            <select id="bbox-east-hem" title="Longitude hemisphere">
+                                <option value="E" selected>E</option>
+                                <option value="W">W</option>
+                            </select>
+                        </div>
+                        <div class="bbox-field">
+                            <input type="number" id="bbox-north" placeholder="North" step="0.001">
+                            <select id="bbox-north-hem" title="Latitude hemisphere">
+                                <option value="N" selected>N</option>
+                                <option value="S">S</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="draw-bbox" class="secondary-btn">Draw on Map</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="limit">Max Results:</label>
+                    <input type="number" id="limit" value="10" min="1" max="100">
+                </div>
+
+                <button id="search-btn" class="primary-btn">Apply Search</button>
+            </aside>
+
+            <!-- Center - Map View -->
+            <main class="map-container">
+                <div id="map"></div>
+                <!-- Drawing Tools Toolbar -->
+                <div class="map-toolbar drawing-tools">
+                    <button id="toggle-drawing-tools" class="tool-btn" title="Toggle Drawing Tools">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                    <div class="drawing-tools-content">
+                        <button id="draw-polygon" class="tool-btn" title="Draw Polygon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="5 5 19 8 16 19 6 16" />
+                            </svg>
+                        </button>
+                        <button id="draw-rectangle" class="tool-btn" title="Draw Rectangle">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="4" y="6" width="16" height="12" rx="1" ry="1"></rect>
+                            </svg>
+                        </button>
+                        <button id="clear-drawing" class="tool-btn" title="Clear Drawing">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Navigation Controls -->
+                <div class="map-controls">
+                    <button id="zoom-in" class="nav-btn" title="Zoom In">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button id="zoom-out" class="nav-btn" title="Zoom Out">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button id="reset-view" class="nav-btn" title="Home">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </main>
+
+            <!-- Right Panel - Results -->
+            <aside class="results-panel">
+                <h2>Search Results</h2>
+                <div id="results-count"></div>
+                <div id="results-list"></div>
+            </aside>
+        </div>
+
+        <!-- Item Detail Modal -->
+        <div id="item-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Item Details</h2>
+                <div id="item-details"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
