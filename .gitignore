@@ -25,3 +25,6 @@ replay_pid*
 
 # Node.js dependencies
 node_modules/
+
+# Build output
+/dist/
