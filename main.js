@@ -281,6 +281,8 @@ function setupEventListeners() {
 
     // Map hover -> highlight + sync results
     map.on('pointermove', handleMapPointerMove);
+    // Map single click -> open item details
+    map.on('singleclick', handleMapSingleClick);
 
     // Drawing toolbar buttons
     document.getElementById('draw-polygon').addEventListener('click', () => {
@@ -1061,6 +1063,34 @@ function handleMapPointerMove(evt) {
 
     // Sync results list
     gotoItemInResults(id);
+}
+
+function handleMapSingleClick(evt) {
+    if (!map) return;
+    let hitFeature = null;
+    map.forEachFeatureAtPixel(evt.pixel, (feature, layer) => {
+        if (layer === itemsLayer) {
+            hitFeature = feature;
+            return true; // stop
+        }
+        return false;
+    }, { layerFilter: l => l === itemsLayer, hitTolerance: 5 });
+
+    if (!hitFeature) return;
+
+    const id = (hitFeature.getId && hitFeature.getId()) || hitFeature.get('id');
+    if (!id) return;
+
+    // Find full item by id
+    const item = currentItems.find(f => f.id === id);
+    if (!item) return;
+
+    // Sync UI and show details
+    setActiveResultCard(id, true);
+    highlightFeature(hitFeature);
+    // Hide hover label when opening details for a cleaner view
+    if (hoverOverlay) hoverOverlay.setPosition(undefined);
+    showItemDetails(item);
 }
 
 function highlightFeature(feature) {

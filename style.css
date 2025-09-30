@@ -524,13 +524,14 @@ body {
 
 /* Active result item highlight */
 .result-item.active {
-    background: var(--bg-primary);
-    border-color: var(--secondary-color);
-    box-shadow: var(--shadow-sm);
+    background: #ffffff;
+    border-color: #ffc107;
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.45), var(--shadow-md);
 }
 
 /* Result Items */
 .result-item {
+    position: relative;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 4px;
