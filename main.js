@@ -7,8 +7,13 @@ import 'ol/ol.css';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import { Tile as TileLayer, Vector as VectorLayer } from 'ol/layer';
-import { OSM, Vector as VectorSource } from 'ol/source';
+import { Vector as VectorSource } from 'ol/source';
 import { fromLonLat, transformExtent, transform } from 'ol/proj';
+
+// Basemap modules
+import { createGoogleSatelliteSource, createGoogleHybridSource, createGoogleMapsSource } from './basemaps/google.js';
+import { createEsriWorldImageryLayer, createEsriWorldLabelsLayer } from './basemaps/esri.js';
+import { createOsmLayer } from './basemaps/osm.js';
 import Draw, { createBox } from 'ol/interaction/Draw';
 import { GeoJSON } from 'ol/format';
 import { Style, Stroke, Fill } from 'ol/style';
@@ -46,6 +51,14 @@ const MPC_COLLECTIONS = [
     { id: 'sentinel-1-grd', title: 'Sentinel 1 Level-1 Ground Range Detected (GRD)' },
     { id: 'sentinel-2-l2a', title: 'Sentinel-2 Level-2A' },
 ];
+
+// Basemap config (keys can be provided via Vite env or window globals)
+const GOOGLE_TILE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GOOGLE_TILE_URL) || (typeof window !== 'undefined' && window.GOOGLE_TILE_URL) || '';
+const GOOGLE_SUBDOMAINS = ((typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GOOGLE_SUBDOMAINS) || (typeof window !== 'undefined' && window.GOOGLE_SUBDOMAINS) || 'mt0,mt1,mt2,mt3').split(',');
+
+// Basemap layer registries
+let basemapRegistry = {}; // key -> TileLayer[]
+let currentBasemapKey = 'osm';
 
 /**
  * Initialize the application
@@ -217,13 +230,44 @@ function initializeMap() {
         })
     });
 
+    // Basemap layers (modularized)
+    const osm = createOsmLayer();
+    osm.setVisible(true);
+
+    // Esri imagery + labels (English)
+    const esriImg = createEsriWorldImageryLayer();
+    const esriLbl = createEsriWorldLabelsLayer();
+
+    // Google basemaps (Satellite / Hybrid / Road)
+    let googleUrls = null;
+    if (GOOGLE_TILE_URL) {
+        googleUrls = (GOOGLE_SUBDOMAINS && GOOGLE_SUBDOMAINS.length)
+            ? GOOGLE_SUBDOMAINS.map(s => GOOGLE_TILE_URL.replace('{s}', s))
+            : [GOOGLE_TILE_URL];
+    }
+    const googleSatSrc = createGoogleSatelliteSource({ urls: googleUrls || undefined });
+    const googleSat = new TileLayer({ source: googleSatSrc, visible: false, zIndex: 0 });
+
+    const googleHybSrc = createGoogleHybridSource();
+    const googleHyb = new TileLayer({ source: googleHybSrc, visible: false, zIndex: 0 });
+
+    const googleRoadSrc = createGoogleMapsSource();
+    const googleRoad = new TileLayer({ source: googleRoadSrc, visible: false, zIndex: 0 });
+
+    basemapRegistry = {
+        'osm': [osm],
+        'esri_img': [esriImg, esriLbl],
+        'google_sat': [googleSat],
+        'google_hyb': [googleHyb],
+        'google_road': [googleRoad]
+    };
+    const allBaseLayers = Object.values(basemapRegistry).flat();
+
     // Initialize the map
     map = new Map({
         target: 'map',
         layers: [
-            new TileLayer({
-                source: new OSM()
-            }),
+            ...allBaseLayers,
             bboxLayer,
             itemsLayer,
             highlightLayer
@@ -234,6 +278,10 @@ function initializeMap() {
         }),
         controls: []
     });
+
+    // Ensure a valid initial basemap is visible
+    setBasemap(currentBasemapKey || 'osm');
+
 
     // Map hover overlay for item id
     hoverLabelEl = document.createElement('div');
@@ -249,6 +297,21 @@ function initializeMap() {
     // Navigation controls will be set up in setupEventListeners
 }
 
+// Toggle basemap visibility by key
+function setBasemap(key) {
+    if (!basemapRegistry || !Object.keys(basemapRegistry).length) return;
+    currentBasemapKey = key;
+    for (const k in basemapRegistry) {
+        basemapRegistry[k].forEach(layer => layer.setVisible(false));
+    }
+    if (basemapRegistry[key]) {
+        basemapRegistry[key].forEach(layer => layer.setVisible(true));
+    }
+    // sync UI if needed
+    const sel = document.getElementById('basemap-select');
+    if (sel && sel.value !== key) sel.value = key;
+}
+
 /**
  * Setup event listeners for UI elements
  */
@@ -261,6 +324,13 @@ function setupEventListeners() {
         setProvider(e.target.value);
         populateCollections(e.target.value);
     });
+    // Basemap select
+    const basemapSel = document.getElementById('basemap-select');
+    if (basemapSel) {
+        basemapSel.addEventListener('change', (e) => {
+            setBasemap(e.target.value);
+        });
+    }
 
     // Draw bbox button
     const drawBboxBtn = document.getElementById('draw-bbox');
