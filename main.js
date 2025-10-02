@@ -20,7 +20,7 @@ import { Style, Stroke, Fill } from 'ol/style';
 import Feature from 'ol/Feature';
 import Polygon from 'ol/geom/Polygon';
 import Overlay from 'ol/Overlay';
-import { searchStacItems, formatItemForDisplay, bboxToExtent, setProvider, getItemThumbnail, resolveAssetHref } from './stac-service.js';
+import { searchStacItems, formatItemForDisplay, bboxToExtent, setProvider, getItemThumbnail, resolveAssetHref, getCollections, getCollection } from './stac-service.js';
 import { downloadItemData, downloadAssets, choosePrimaryAssets, deriveFilenameFromAsset, signPlanetaryComputerUrl } from './download-clients.js';
 
 // Global variables
@@ -42,6 +42,13 @@ let hoverLabelEl;
 let lastHoverFeatureId = null;
 let activeResultItemId = null;
 
+// Collection picker state
+let allCollections = [];
+let filteredCollections = [];
+const COLLECTIONS_PER_PAGE = 5;
+let collectionsPage = 1;
+let collectionsLoadedProvider = null;
+
 // Default collection options snapshot
 let defaultCollectionOptionsHTML = '';
 
@@ -52,6 +59,9 @@ const MPC_COLLECTIONS = [
     { id: 'sentinel-1-grd', title: 'Sentinel 1 Level-1 Ground Range Detected (GRD)' },
     { id: 'sentinel-2-l2a', title: 'Sentinel-2 Level-2A' },
 ];
+
+const MPC_PRIORITY_IDS = ['landsat-c2-l2', 'sentinel-2-l2a', 'sentinel-1-rtc', 'sentinel-1-grd'];
+const AWS_PRIORITY_IDS = ['sentinel-2-l2a', 'sentinel-1-grd'];
 
 // Basemap config (keys can be provided via Vite env or window globals)
 const GOOGLE_TILE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GOOGLE_TILE_URL) || (typeof window !== 'undefined' && window.GOOGLE_TILE_URL) || '';
@@ -71,13 +81,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Capture default collection options once
     const colSel = document.getElementById('collection');
-    if (colSel && !defaultCollectionOptionsHTML) {
+    if (colSel && colSel.tagName === 'SELECT' && !defaultCollectionOptionsHTML) {
         defaultCollectionOptionsHTML = colSel.innerHTML;
     }
-    // Populate curated collections for current provider
+    // NOTE: The new collection picker uses a modal; skip populating legacy select if not present
     const currentProviderSel = document.getElementById('provider');
     const currentProvider = currentProviderSel ? currentProviderSel.value : 'planetary-computer';
     populateCollections(currentProvider);
+
 });
 
 /**
@@ -324,6 +335,15 @@ function setupEventListeners() {
     document.getElementById('provider').addEventListener('change', (e) => {
         setProvider(e.target.value);
         populateCollections(e.target.value);
+        // Reset selected collection for new provider
+        const hiddenCol = document.getElementById('collection');
+        if (hiddenCol) hiddenCol.value = '';
+        const btn = document.getElementById('open-collection-picker');
+        if (btn) btn.textContent = 'Select Collection';
+        allCollections = [];
+        filteredCollections = [];
+        collectionsPage = 1;
+        collectionsLoadedProvider = null;
     });
     // Basemap select
     const basemapSel = document.getElementById('basemap-select');
@@ -404,6 +424,25 @@ function setupEventListeners() {
             toggleBtn.setAttribute('title', 'Show Drawing Tools');
         }
     });
+
+    // Collection picker open button
+    const openPickerBtn = document.getElementById('open-collection-picker');
+    if (openPickerBtn) {
+        openPickerBtn.addEventListener('click', openCollectionPicker);
+    }
+
+    // Collection modal close button
+    const colClose = document.querySelector('#collection-modal .close');
+    if (colClose) colClose.addEventListener('click', closeCollectionModal);
+    // Click outside collection modal to close
+    const colModal = document.getElementById('collection-modal');
+    if (colModal) {
+        colModal.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'collection-modal') {
+                closeCollectionModal();
+            }
+        });
+    }
 
     // Navigation controls (separate and independent)
     document.getElementById('zoom-in').addEventListener('click', () => {
@@ -1260,6 +1299,8 @@ function gotoItemInResults(id) {
 function populateCollections(provider) {
     const select = document.getElementById('collection');
     if (!select) return;
+    // Only operate if the legacy element is a SELECT; otherwise, the new modal picker is active
+    if (select.tagName !== 'SELECT') return;
 
     if (provider === 'planetary-computer' || provider === 'earth-search') {
         let collections = MPC_COLLECTIONS;
@@ -1284,6 +1325,348 @@ function populateCollections(provider) {
  */
 function closeModal() {
     document.getElementById('item-modal').classList.remove('show');
+}
+
+// Collection modal helpers
+function closeCollectionModal() {
+    const modal = document.getElementById('collection-modal');
+    if (modal) modal.classList.remove('show');
+}
+
+async function openCollectionPicker() {
+    const providerSel = document.getElementById('provider');
+    const provider = providerSel ? providerSel.value : 'planetary-computer';
+    const modal = document.getElementById('collection-modal');
+    const listView = document.getElementById('collection-list');
+    const detailView = document.getElementById('collection-detail');
+    const grid = document.getElementById('collection-grid');
+    const pag = document.getElementById('collection-pagination');
+    const searchInput = document.getElementById('collection-search');
+    if (!modal || !grid || !pag) return;
+
+    modal.classList.add('show');
+    if (detailView) { detailView.classList.add('hidden'); detailView.innerHTML = ''; }
+    if (listView) listView.classList.remove('hidden');
+
+    grid.innerHTML = '<div class="loading">Loading collections...</div>';
+    pag.innerHTML = '';
+    collectionsPage = 1;
+
+    try {
+        if (!allCollections.length || collectionsLoadedProvider !== provider) {
+            const cols = await getCollections(provider);
+            allCollections = Array.isArray(cols) ? cols : [];
+            collectionsLoadedProvider = provider;
+
+            let priorityIds = [];
+            if (provider === 'planetary-computer') {
+                priorityIds = MPC_PRIORITY_IDS;
+            } else if (provider === 'earth-search') {
+                priorityIds = AWS_PRIORITY_IDS;
+            }
+
+            if (priorityIds.length > 0) {
+                const prioritySet = new Set(priorityIds);
+                const priority = allCollections.filter(c => prioritySet.has(c.id));
+                const others = allCollections.filter(c => !prioritySet.has(c.id));
+                const orderedPriority = priorityIds.map(id => priority.find(c => c.id === id)).filter(Boolean);
+                allCollections = [...orderedPriority, ...others];
+            }
+        }
+        applyCollectionFilter('');
+        renderCollectionsPage();
+    } catch (e) {
+        grid.innerHTML = `<div class="error">Failed to load collections: ${e.message || e}</div>`;
+    }
+
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.oninput = () => {
+            collectionsPage = 1;
+            applyCollectionFilter(searchInput.value);
+            renderCollectionsPage();
+        };
+    }
+}
+
+function applyCollectionFilter(query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) {
+        filteredCollections = allCollections.slice();
+        return;
+    }
+    filteredCollections = allCollections.filter(c => {
+        const id = String(c.id || '').toLowerCase();
+        const title = String(c.title || '').toLowerCase();
+        const keywords = Array.isArray(c.keywords) ? c.keywords.join(' ').toLowerCase() : '';
+        return id.includes(q) || title.includes(q) || keywords.includes(q);
+    });
+}
+
+function renderCollectionsPage() {
+    const grid = document.getElementById('collection-grid');
+    const pag = document.getElementById('collection-pagination');
+    if (!grid || !pag) return;
+
+    grid.innerHTML = '';
+
+    const total = filteredCollections.length;
+    const totalPages = Math.max(1, Math.ceil(total / COLLECTIONS_PER_PAGE));
+    collectionsPage = Math.min(Math.max(1, collectionsPage), totalPages);
+
+    const start = (collectionsPage - 1) * COLLECTIONS_PER_PAGE;
+    const end = Math.min(start + COLLECTIONS_PER_PAGE, total);
+    const pageItems = filteredCollections.slice(start, end);
+
+    pageItems.forEach(col => {
+        const card = createCollectionCard(col);
+        grid.appendChild(card);
+    });
+
+    pag.className = 'collection-pagination pagination';
+    pag.innerHTML = `
+        <button class="pager-btn" id="col-page-prev" ${collectionsPage === 1 ? 'disabled' : ''}>Prev</button>
+        <span class="page-info">Page ${collectionsPage} of ${totalPages}</span>
+        <button class="pager-btn" id="col-page-next" ${collectionsPage === totalPages ? 'disabled' : ''}>Next</button>
+    `;
+
+    const prev = document.getElementById('col-page-prev');
+    const next = document.getElementById('col-page-next');
+    if (prev) prev.onclick = () => { collectionsPage = Math.max(1, collectionsPage - 1); renderCollectionsPage(); };
+    if (next) next.onclick = () => { collectionsPage = Math.min(totalPages, collectionsPage + 1); renderCollectionsPage(); };
+}
+
+function createCollectionCard(c) {
+    const div = document.createElement('div');
+    div.className = 'collection-card';
+    div.setAttribute('title', c.id || 'collection');
+
+    const assets = c.assets || {};
+    const thumb = assets.thumbnail && assets.thumbnail.href ? assets.thumbnail.href : null;
+    const title = c.title || c.id || '';
+    const desc = c.description ? String(c.description).replace(/\n+/g, ' ') : '';
+    const shortDesc = c['msft:short_description'] || (desc.length > 180 ? (desc.slice(0, 180) + '…') : desc);
+    const kw = Array.isArray(c.keywords) ? c.keywords.slice(0, 8) : [];
+
+    const thumbHTML = thumb ? `<img src="${thumb}" alt="Thumbnail"/>` : '';
+
+    const providerSel = document.getElementById('provider');
+    const provider = providerSel ? providerSel.value : 'planetary-computer';
+    const isPriorityMPC = provider === 'planetary-computer' && MPC_PRIORITY_IDS.includes(c.id);
+    const isPriorityAWS = provider === 'earth-search' && AWS_PRIORITY_IDS.includes(c.id);
+    const isTested = isPriorityMPC || isPriorityAWS;
+    const testedBadge = isTested ? '<span class="tested-badge">Tested</span>' : '';
+
+    div.innerHTML = `
+        <div class="thumb">${thumbHTML}</div>
+        <div class="info">
+            <div class="title">${title}${testedBadge}</div>
+            <div class="id">${c.id}</div>
+            ${shortDesc ? `<div class=\"desc\">${shortDesc}</div>` : ''}
+            ${kw.length ? `<div class=\"keywords\">${kw.map(k => `<span>${k}</span>`).join('')}</div>` : ''}
+        </div>
+    `;
+
+    div.addEventListener('click', () => {
+        showCollectionDetail(c);
+    });
+
+    return div;
+}
+
+async function showCollectionDetail(meta) {
+    const providerSel = document.getElementById('provider');
+    const provider = providerSel ? providerSel.value : 'planetary-computer';
+    const listView = document.getElementById('collection-list');
+    const detailView = document.getElementById('collection-detail');
+    if (!detailView) return;
+
+    let col = meta;
+    try {
+        col = await getCollection(provider, meta.id);
+    } catch (e) {
+        col = meta;
+    }
+
+    const assets = col.assets || {};
+    const thumb = assets.thumbnail?.href || '';
+    const title = col.title || col.id || '';
+    const desc = col.description || '';
+    const keywords = Array.isArray(col.keywords) ? col.keywords : [];
+    const providers = Array.isArray(col.providers) ? col.providers : [];
+    const extent = col.extent || {};
+    const temporal = extent.temporal?.interval?.[0] || [];
+    const spatial = extent.spatial?.bbox?.[0] || [];
+
+    const links = Array.isArray(col.links) ? col.links : [];
+    const describedBy = links.find(l => l.rel === 'describedby');
+
+    const summaries = col.summaries || {};
+
+    let temporalRange = 'N/A';
+    if (temporal.length >= 2) {
+        const start = temporal[0] ? new Date(temporal[0]).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Start';
+        const end = temporal[1] ? new Date(temporal[1]).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Present';
+        temporalRange = `${start} – ${end}`;
+    }
+
+    let spatialExtent = 'Global';
+    if (spatial.length === 4) {
+        const [west, south, east, north] = spatial;
+        if (!(west === -180 && south === -90 && east === 180 && north === 90)) {
+            spatialExtent = `[${west.toFixed(2)}, ${south.toFixed(2)}] to [${east.toFixed(2)}, ${north.toFixed(2)}]`;
+        }
+    }
+
+    const kwHTML = keywords.slice(0, 15).map(k => `<span>${escapeHtml(k)}</span>`).join('');
+
+    const providersHTML = providers.map(p => {
+        const roles = Array.isArray(p.roles) ? p.roles.join(', ') : '';
+        return `
+            <div class="provider-card">
+                <span class="provider-name">${escapeHtml(p.name || 'Unknown')}</span>
+                ${roles ? `<span class="provider-roles">(${escapeHtml(roles)})</span>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    const formatSummaryValue = (key, value) => {
+        if (Array.isArray(value)) {
+            if (value.length === 0) return 'N/A';
+
+            if (Array.isArray(value[0])) {
+                return value.map(arr => Array.isArray(arr) ? `[${arr.join(', ')}]` : arr).join(' • ');
+            }
+
+            if (typeof value[0] === 'object' && value[0] !== null) {
+                const isEoBands = key === 'eo:bands';
+                if (isEoBands) {
+                    return value.map(band => {
+                        const parts = [];
+                        if (band.name) parts.push(`<strong>${band.name}</strong>`);
+                        if (band.common_name) parts.push(`(${band.common_name})`);
+                        if (band.description) parts.push(`- ${band.description}`);
+                        if (band.center_wavelength) parts.push(`λ=${band.center_wavelength}μm`);
+                        if (band.gsd) parts.push(`${band.gsd}m`);
+                        return parts.join(' ');
+                    }).join('<br>');
+                }
+                return JSON.stringify(value, null, 2);
+            }
+
+            return value.join(', ');
+        }
+
+        if (typeof value === 'object' && value !== null) {
+            const keys = Object.keys(value);
+            if (keys.length <= 4) {
+                const parts = keys.map(k => {
+                    const v = value[k];
+                    if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') {
+                        return `${k}: ${v}`;
+                    }
+                    return null;
+                }).filter(Boolean);
+                if (parts.length === keys.length) {
+                    return parts.join(' | ');
+                }
+            }
+            return JSON.stringify(value, null, 2);
+        }
+
+        return String(value);
+    };
+
+    let summariesHTML = '';
+    if (Object.keys(summaries).length > 0) {
+        const summaryItems = Object.entries(summaries).map(([key, value]) => {
+            const formattedValue = formatSummaryValue(key, value);
+            const isEoBands = key === 'eo:bands';
+            const needsHTML = formattedValue.includes('<br>') || formattedValue.includes('<strong>');
+            const isLongValue = !needsHTML && (formattedValue.length > 100 || formattedValue.includes('\n'));
+
+            return `
+                <div class="info-item ${isLongValue || isEoBands ? 'info-item-full' : ''}">
+                    <span class="info-label">${escapeHtml(key)}</span>
+                    <span class="info-value ${isLongValue ? 'info-value-pre' : (isEoBands ? 'info-value-bands' : '')}">${needsHTML ? formattedValue : escapeHtml(formattedValue)}</span>
+                </div>
+            `;
+        }).join('');
+        summariesHTML = summaryItems;
+    }
+
+    detailView.innerHTML = `
+        <div class="header-section">
+            <div class="thumb">${thumb ? `<img src="${thumb}" alt="Thumbnail"/>` : ''}</div>
+            <div class="header-info">
+                <div class="title">${escapeHtml(title)}</div>
+                <div class="id">${escapeHtml(col.id)}</div>
+                ${kwHTML ? `
+                    <div class="keywords-section">
+                        <span class="keywords-label">Keywords:</span>
+                        <div class="keywords">${kwHTML}</div>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+
+        ${desc ? `<div class="desc">${escapeHtml(desc)}</div>` : ''}
+
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Temporal Coverage</span>
+                <span class="info-value">${temporalRange}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Spatial Extent</span>
+                <span class="info-value">${spatialExtent}</span>
+            </div>
+            ${describedBy ? `
+                <div class="info-item">
+                    <span class="info-label">Documentation</span>
+                    <span class="info-value"><a href="${describedBy.href}" target="_blank" rel="noopener noreferrer">${escapeHtml(describedBy.title || 'View Docs')}</a></span>
+                </div>
+            ` : ''}
+            ${summariesHTML}
+        </div>
+
+        ${providersHTML ? `
+            <div>
+                <div class="keywords-label" style="margin-bottom: 0.5rem;">Providers</div>
+                <div class="providers-section">${providersHTML}</div>
+            </div>
+        ` : ''}
+
+        <div class="actions">
+            <button id="collection-back" type="button" class="secondary-btn" title="Back to list">Back</button>
+            <button id="collection-import" type="button" class="primary-btn">Import Collection</button>
+        </div>
+    `;
+
+    if (listView) listView.classList.add('hidden');
+    detailView.classList.remove('hidden');
+
+    const backBtn = document.getElementById('collection-back');
+    if (backBtn) backBtn.onclick = () => {
+        detailView.classList.add('hidden');
+        detailView.innerHTML = '';
+        if (listView) listView.classList.remove('hidden');
+    };
+
+    const importBtn = document.getElementById('collection-import');
+    if (importBtn) importBtn.onclick = () => {
+        const hidden = document.getElementById('collection');
+        if (hidden) hidden.value = col.id;
+        const selBtn = document.getElementById('open-collection-picker');
+        if (selBtn) selBtn.textContent = title || col.id;
+        closeCollectionModal();
+    };
+}
+
+function escapeHtml(str) {
+    try {
+        return String(str).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+    } catch { return String(str || ''); }
 }
 
 // Download dialog UI

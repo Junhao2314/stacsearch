@@ -77,7 +77,7 @@ export async function getCollections(provider) {
         const response = await fetch(`${apiUrl}/collections`);
         
         if (!response.ok) {
-            throw new Error(`Failed to fetch collections: ${response.statusText}`);
+            throw new Error(`Failed to fetch collections: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
@@ -85,6 +85,25 @@ export async function getCollections(provider) {
     } catch (error) {
         console.error('Error fetching collections:', error);
         throw error;
+    }
+}
+
+/**
+ * Get a single collection by id
+ */
+export async function getCollection(provider, collectionId) {
+    const apiUrl = STAC_PROVIDERS[provider || currentProvider].url;
+    try {
+        const resp = await fetch(`${apiUrl}/collections/${encodeURIComponent(collectionId)}`);
+        if (!resp.ok) {
+            let reason = '';
+            try { reason = await resp.text(); } catch {}
+            throw new Error(`Failed to fetch collection ${collectionId}: ${resp.status} ${resp.statusText}${reason ? ' - ' + reason : ''}`);
+        }
+        return await resp.json();
+    } catch (e) {
+        console.error('Error fetching collection detail:', e);
+        throw e;
     }
 }
 
