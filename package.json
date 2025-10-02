@@ -11,7 +11,7 @@
     "vercel-build": "npm run build"
   },
   "keywords": ["stac", "openlayers", "geospatial"],
-  "author": "",
+  "author": "Liu Junhao (https://github.com/Junhao2314)",
   "license": "MIT",
   "dependencies": {
     "ol": "^8.2.0"

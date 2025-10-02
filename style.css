@@ -55,6 +55,66 @@ body {
     font-weight: 400;
 }
 
+/* Author banner */
+.author-banner {
+    margin-top: 0.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.author-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border: 1px solid var(--border-color);
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.author-link:hover {
+    background: var(--bg-tertiary);
+    color: var(--primary-color);
+    border-color: var(--secondary-color);
+    transform: translateY(-1px);
+}
+.gh-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+}
+
+/* Header subline row under title for tagline and author link (centered tagline) */
+.header-subline {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+}
+.header-subline p {
+    grid-column: 2;
+    justify-self: center;
+    margin: 0;
+}
+/* Place author link at far right without affecting tagline center */
+.header-subline .author-link {
+    grid-column: 3;
+    justify-self: end;
+}
+/* Small screens: stack with author link below tagline */
+@media (max-width: 640px) {
+    .header-subline {
+        grid-template-columns: 1fr;
+    }
+    .header-subline .author-link {
+        grid-column: 1;
+        justify-self: center;
+        margin-top: 0.4rem;
+    }
+}
+
 /* Main Container Layout */
 .main-container {
     display: flex;

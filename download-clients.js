@@ -316,6 +316,8 @@ export async function downloadAssets(selections, { provider, directoryHandle, on
     } catch (e) {
       if (abortSignal?.aborted) { aborted = true; break; }
       console.error(`Download failed for ${sel.key}:`, e);
+      // Fallback: open the URL in a new tab/window so the browser can handle the download without CORS
+      try { window.open(finalUrl, '_blank', 'noopener'); } catch {}
     }
   }
   if (aborted) throw new DOMException('Aborted', 'AbortError');

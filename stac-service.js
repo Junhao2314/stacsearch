@@ -200,6 +200,24 @@ function formatDatetime(datetime) {
     }
 }
 
+// Utilities to convert s3:// URLs to HTTPS for browser usage
+export function parseS3Url(s3url) {
+    if (!s3url || typeof s3url !== 'string') return null;
+    const m = /^s3:\/\/([^\/]+)\/(.+)$/.exec(s3url);
+    if (!m) return null;
+    return { bucket: m[1], key: m[2] };
+}
+
+export function resolveAssetHref(href) {
+    if (!href || typeof href !== 'string') return href;
+    if (!href.startsWith('s3://')) return href;
+    const parsed = parseS3Url(href);
+    if (!parsed) return href;
+    const { bucket, key } = parsed;
+    // Always use AWS virtual-hosted S3 URL for all buckets, including usgs-landsat
+    return `https://${bucket}.s3.amazonaws.com/${encodeURI(key)}`;
+}
+
 /**
  * Get thumbnail URL from item assets
  */
@@ -212,7 +230,7 @@ export function getItemThumbnail(item) {
     for (const key of preference) {
         const a = assets[key];
         if (a && a.href) {
-            return a.href;
+            return resolveAssetHref(a.href);
         }
     }
     return null;

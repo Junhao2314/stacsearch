@@ -20,7 +20,7 @@ import { Style, Stroke, Fill } from 'ol/style';
 import Feature from 'ol/Feature';
 import Polygon from 'ol/geom/Polygon';
 import Overlay from 'ol/Overlay';
-import { searchStacItems, formatItemForDisplay, bboxToExtent, setProvider, getItemThumbnail } from './stac-service.js';
+import { searchStacItems, formatItemForDisplay, bboxToExtent, setProvider, getItemThumbnail, resolveAssetHref } from './stac-service.js';
 import { downloadItemData, downloadAssets, choosePrimaryAssets, deriveFilenameFromAsset, signPlanetaryComputerUrl } from './download-clients.js';
 
 // Global variables
@@ -615,10 +615,19 @@ async function performSearch() {
 
     try {
         const results = await searchStacItems(searchParams);
+        
+        // Filter out AWS Earth Search Landsat items if any slipped through (no collection selected, etc.)
+        const provider = searchParams.provider || (document.getElementById('provider')?.value) || 'planetary-computer';
+        const rawFeatures = (results && Array.isArray(results.features)) ? results.features : [];
+        const filteredFeatures = (provider === 'earth-search')
+            ? rawFeatures.filter(f => f && f.collection !== 'landsat-c2-l2')
+            : rawFeatures;
+
         // Store and reset pagination
-        currentItems = results.features || [];
+        currentItems = filteredFeatures;
         currentPage = 1;
-        displaySearchResults(results);
+        // Pass filtered results so counts and pages match UI
+        displaySearchResults({ ...results, features: filteredFeatures });
         
         // Display items on map
         displayItemsOnMap(currentItems);
@@ -920,6 +929,8 @@ async function showItemDetails(item) {
     } else {
         thumbUrl = getItemThumbnail(item);
     }
+    // Normalize any s3:// thumbnail to HTTPS for browser rendering
+    thumbUrl = resolveAssetHref(thumbUrl);
 
     // Build details HTML - improved layout
     let detailsHTML = `
@@ -1029,8 +1040,10 @@ ${mgrs ? `<span class=\"label\">MGRS tile:</span><span class=\"value\">${mgrs}</
 function renderAssetDetail(container, key, asset) {
     if (!container || !asset) return;
 
-    // Decide if we should preview the asset as an image (exclude TIFF/GeoTIFF)
-    const hrefLower = String(asset.href || '').toLowerCase();
+    // Resolve s3:// to https:// and decide if we should preview the asset as an image (exclude TIFF/GeoTIFF)
+    const hrefRaw = String(asset.href || '');
+    const resolvedHref = resolveAssetHref(hrefRaw);
+    const hrefLower = resolvedHref.toLowerCase();
     const typeLower = String(asset.type || '').toLowerCase();
     const isPreviewableImage = (
         (typeLower === 'image/jpeg' || typeLower === 'image/jpg' || typeLower === 'image/png' || typeLower === 'image/gif' || typeLower === 'image/webp') ||
@@ -1040,13 +1053,13 @@ function renderAssetDetail(container, key, asset) {
     const roles = Array.isArray(asset.roles) ? asset.roles.join(', ') : (asset.roles || 'N/A');
 
     const previewHTML = isPreviewableImage ? `
-        <div class=\"asset-preview\"><img src=\"${asset.href}\" alt=\"${key} preview\" /></div>
+        <div class=\"asset-preview\"><img src=\"${resolvedHref}\" alt=\"${key} preview\" /></div>
     ` : '';
 
     // Short display for long HREFs
-    let displayHref = asset.href || 'N/A';
+    let displayHref = resolvedHref || 'N/A';
     try {
-        const u = new URL(asset.href);
+        const u = new URL(resolvedHref);
         const parts = u.pathname.split('/').filter(Boolean);
         const tail = parts.slice(-2).join('/');
         displayHref = `${u.origin}/.../${tail}`;
@@ -1063,7 +1076,7 @@ function renderAssetDetail(container, key, asset) {
         <div class=\"detail-grid\">
             <span class=\"label\">Type:</span><span class=\"value\">${asset.type || 'N/A'}</span>
             <span class=\"label\">Roles:</span><span class=\"value\">${roles}</span>
-            <span class=\"label\">Href:</span><span class=\"value\"><a href=\"${asset.href}\" title=\"${asset.href}\" target=\"_blank\" rel=\"noopener noreferrer\">${displayHref}</a></span>
+            <span class=\"label\">Href:</span><span class=\"value\"><a href=\"${resolvedHref}\" title=\"${resolvedHref}\" target=\"_blank\" rel=\"noopener noreferrer\">${displayHref}</a></span>
             ${asset.title ? `<span class=\"label\">Title:</span><span class=\"value\">${asset.title}</span>` : ''}
             ${asset.description ? `<span class=\"label\">Description:</span><span class=\"value\">${asset.description}</span>` : ''}
         </div>
@@ -1251,7 +1264,8 @@ function populateCollections(provider) {
     if (provider === 'planetary-computer' || provider === 'earth-search') {
         let collections = MPC_COLLECTIONS;
         if (provider === 'earth-search') {
-            collections = MPC_COLLECTIONS.filter(c => c.id !== 'sentinel-1-rtc');
+            // Hide Landsat for AWS Earth Search and also exclude unsupported RTC
+            collections = MPC_COLLECTIONS.filter(c => c.id !== 'sentinel-1-rtc' && c.id !== 'landsat-c2-l2');
         }
         const opts = ['<option value="">Select a collection...</option>']
             .concat(collections.map(c => `<option value="${c.id}" title="${c.title}">${c.title}</option>`));
