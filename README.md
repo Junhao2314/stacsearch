@@ -8,6 +8,7 @@ A web platform for searching and visualizing STAC (SpatioTemporal Asset Catalog)
 - 🔍 **Advanced Search**: Search STAC items by collection, date range, and bounding box
 - 📍 **Draw on Map**: Draw bounding boxes directly on the map for spatial queries
 - 📊 **Detailed Information**: View comprehensive item details in a modal window
+- ⬇️ **Item Download**: Download item assets directly from Item Details (supports Planetary Computer signing and basic S3 handling)
 
 ## Notice
 

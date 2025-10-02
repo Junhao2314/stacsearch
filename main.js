@@ -21,6 +21,7 @@ import Feature from 'ol/Feature';
 import Polygon from 'ol/geom/Polygon';
 import Overlay from 'ol/Overlay';
 import { searchStacItems, formatItemForDisplay, bboxToExtent, setProvider, getItemThumbnail } from './stac-service.js';
+import { downloadItemData, downloadAssets, choosePrimaryAssets, deriveFilenameFromAsset } from './download-clients.js';
 
 // Global variables
 let map;
@@ -891,6 +892,8 @@ function showItemDetails(item) {
     const gsd = (gsdVal !== undefined && gsdVal !== null) ? `${gsdVal} m` : 'N/A';
     const epsg = props['proj:epsg'] || 'N/A';
     const mgrs = props['s2:mgrs_tile'] || props['mgrs:tile'] || null;
+    // Robust Date/Time: use item.datetime if already formatted; otherwise derive from properties
+    const dt = (item && item.datetime) ? item.datetime : formatItemForDisplay(item).datetime;
 
     const thumbUrl = getItemThumbnail(item);
 
@@ -902,15 +905,16 @@ function showItemDetails(item) {
                 <div class="id-line" title="${item.id}">${item.id}</div>
                 <div class="summary-grid">
                     <span class="label">Collection:</span><span class="value">${item.collection}</span>
-                    <span class="label">Date/Time:</span><span class="value">${item.datetime}</span>
+                    <span class="label">Date/Time:</span><span class="value">${dt}</span>
                     <span class="label">Platform:</span><span class="value">${platform}</span>
                     <span class="label">Instrument:</span><span class="value">${instruments}</span>
                     <span class="label">Cloud cover:</span><span class="value">${cloudCover}</span>
                     <span class="label">GSD:</span><span class="value">${gsd}</span>
-                    <span class="label">CRS (EPSG):</span><span class="value">${epsg}</span>
-                    ${mgrs ? `<span class=\"label\">MGRS tile:</span><span class=\"value\">${mgrs}</span>` : ''}
+                    <span class="label">CRS (EPSG):</span><span class="value value-with-action"><span>${epsg}</span><button id="download-item-btn" class="download-btn" type="button" title="Download item data">Download</button></span>
+${mgrs ? `<span class=\"label\">MGRS tile:</span><span class=\"value\">${mgrs}</span>` : ''}
                 </div>
             </div>
+        </div>
         </div>
     `;
 
@@ -955,6 +959,14 @@ function showItemDetails(item) {
 
     detailsDiv.innerHTML = detailsHTML;
     modal.classList.add('show');
+
+    // Wire up download button (Item-level)
+    const dlBtn = detailsDiv.querySelector('#download-item-btn');
+    if (dlBtn) {
+        dlBtn.addEventListener('click', () => {
+            openDownloadDialog(item);
+        });
+    }
 
     // Wire up asset pill interactions to show details inline
     const pills = detailsDiv.querySelectorAll('.asset-pill');
@@ -1234,6 +1246,234 @@ function populateCollections(provider) {
  */
 function closeModal() {
     document.getElementById('item-modal').classList.remove('show');
+}
+
+// Download dialog UI
+async function openDownloadDialog(item) {
+    const providerSel = document.getElementById('provider');
+    const provider = providerSel ? providerSel.value : 'planetary-computer';
+    const candidates = choosePrimaryAssets(item);
+    if (!candidates.length) {
+        alert('No downloadable assets found for this item.');
+        return;
+    }
+
+    // Build overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'download-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'download-dialog';
+
+    const supportsDirPicker = typeof window.showDirectoryPicker === 'function';
+
+    const assetRows = candidates.map(({ key, asset }) => {
+        const fn = deriveFilenameFromAsset(asset);
+        return `
+            <div class="asset-row">
+                <label class="asset-name"><input type="checkbox" class="asset-check" data-key="${key}" checked> ${key}</label>
+                <span class="filename-hint" title="${fn}">${fn}</span>
+            </div>
+            <div class="progress-row" data-key="${key}">
+                <div class="progress-bar"><div class="bar"></div></div>
+                <span class="progress-text">0%</span>
+            </div>
+        `;
+    }).join('');
+
+    dialog.innerHTML = `
+        <div class="dialog-header">
+            <h3>Select assets to download</h3>
+            <div class="list-actions">
+                <button class="download-btn secondary" id="select-all">Select All</button>
+                <button class="download-btn secondary" id="deselect-all">Deselect All</button>
+            </div>
+        </div>
+        <div class="asset-list">${assetRows}</div>
+        <div class="dialog-actions">
+            <div>
+                ${supportsDirPicker ? '<button class="download-btn" id="pick-folder">Select Folder</button>' : '<span style="color:#5a6c7d; font-size:0.85rem;">Folder selection not supported in this browser. You will be prompted per file.</span>'}
+            </div>
+            <div>
+                <button class=\"download-btn\" id=\"start-download\">Start</button>
+                <button class=\"download-btn\" id=\"stop-download\">Stop</button>
+                <button class=\"download-btn\" id=\"close-download\">Close</button>
+            </div>
+        </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // Card row click toggles selection
+    const rows = Array.from(dialog.querySelectorAll('.asset-row'));
+    rows.forEach(row => {
+        const checkbox = row.querySelector('.asset-check');
+        if (!checkbox) return;
+        // init selected state
+        if (checkbox.checked) row.classList.add('selected');
+        // prevent double toggle when clicking checkbox
+        checkbox.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setTimeout(() => {
+                if (checkbox.checked) row.classList.add('selected');
+                else row.classList.remove('selected');
+            }, 0);
+        });
+        row.addEventListener('click', () => {
+            checkbox.checked = !checkbox.checked;
+            if (checkbox.checked) row.classList.add('selected');
+            else row.classList.remove('selected');
+        });
+    });
+
+    let directoryHandle = null;
+    const pickBtn = dialog.querySelector('#pick-folder');
+
+    // Abort controller for downloads
+    let dlAbortController = null;
+    if (pickBtn) {
+        pickBtn.addEventListener('click', async () => {
+            try {
+                // Requires secure context (https or localhost)
+                directoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                pickBtn.textContent = 'Folder Selected';
+                pickBtn.disabled = true;
+            } catch (e) {
+                console.warn('Folder selection cancelled or not permitted:', e);
+            }
+        });
+    }
+
+    const closeBtn = dialog.querySelector('#close-download');
+    closeBtn.addEventListener('click', () => {
+        document.body.removeChild(overlay);
+    });
+
+    // Select all / Deselect all
+    const selAll = dialog.querySelector('#select-all');
+    const deselAll = dialog.querySelector('#deselect-all');
+    if (selAll) {
+        selAll.addEventListener('click', () => {
+            dialog.querySelectorAll('.asset-check').forEach(c => { c.checked = true; c.closest('.asset-row')?.classList.add('selected'); });
+        });
+    }
+    if (deselAll) {
+        deselAll.addEventListener('click', () => {
+            dialog.querySelectorAll('.asset-check').forEach(c => { c.checked = false; c.closest('.asset-row')?.classList.remove('selected'); });
+        });
+    }
+
+    const startBtn = dialog.querySelector('#start-download');
+    const stopBtn = dialog.querySelector('#stop-download');
+    startBtn.addEventListener('click', async () => {
+        startBtn.disabled = true;
+        if (stopBtn) stopBtn.disabled = false;
+        dlAbortController = new AbortController();
+        const checks = Array.from(dialog.querySelectorAll('.asset-check'));
+        const selected = checks.filter(c => c.checked).map(c => c.getAttribute('data-key'));
+        if (!selected.length) {
+            alert('Please select at least one asset.');
+            startBtn.disabled = false;
+            return;
+        }
+        const selections = candidates
+            .filter(c => selected.includes(c.key))
+            .map(c => ({ key: c.key, asset: c.asset, filename: deriveFilenameFromAsset(c.asset) }));
+
+        const progressState = new Map();
+        const formatBytes = (bytes) => {
+            if (bytes == null || !isFinite(bytes)) return '?';
+            const units = ['B','KB','MB','GB','TB'];
+            let i = 0; let v = bytes;
+            while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+            return `${v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2)} ${units[i]}`;
+        };
+        const formatRate = (bps) => {
+            if (bps == null || !isFinite(bps) || bps < 0) return '';
+            return `${formatBytes(bps)}/s`;
+        };
+        const formatDurationShort = (secs) => {
+            if (secs == null || !isFinite(secs) || secs < 0) return '';
+            secs = Math.round(secs);
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            const s = secs % 60;
+            if (h > 0) return `${h}h ${m}m`;
+            if (m > 0) return `${m}m ${s}s`;
+            return `${s}s`;
+        };
+        const onProgress = (assetKey, p) => {
+            const row = dialog.querySelector(`.progress-row[data-key=\"${assetKey}\"]`);
+            if (!row) return;
+            const bar = row.querySelector('.bar');
+            const txt = row.querySelector('.progress-text');
+
+            const now = Date.now();
+            let st = progressState.get(assetKey);
+            if (!st) {
+                st = { lastTime: now, lastLoaded: p.loaded || 0, rate: 0, etaSec: null, startTime: now };
+                progressState.set(assetKey, st);
+            }
+            const loaded = p.loaded || 0;
+            const total = p.total || 0;
+            const dt = (now - st.lastTime) / 1000;
+            if (dt > 0 && loaded >= st.lastLoaded) {
+                const inst = (loaded - st.lastLoaded) / dt; // B/s
+                // stronger smoothing for speed
+                st.rate = st.rate ? (0.8 * st.rate + 0.2 * inst) : inst;
+                st.lastTime = now;
+                st.lastLoaded = loaded;
+            }
+
+            const percentStr = (p && p.percent != null) ? `${p.percent}%` : '—';
+            if (bar && p && p.percent != null) bar.style.width = `${p.percent}%`;
+
+            const rateStr = formatRate(st.rate);
+            const loadedStr = formatBytes(loaded);
+            const totalStr = total ? formatBytes(total) : '?';
+
+            // compute ETA and smooth it as well
+            let etaRaw = (total && st.rate > 0 && loaded <= total) ? (total - loaded) / st.rate : null;
+            if (etaRaw != null) {
+                st.etaSec = (st.etaSec != null) ? (0.85 * st.etaSec + 0.15 * etaRaw) : etaRaw;
+            }
+            const etaShort = (st.etaSec != null) ? formatDurationShort(st.etaSec) : '';
+
+            if (txt) {
+                const parts = [
+                    `Progress: ${percentStr}`,
+                    rateStr ? `Speed: ${rateStr}` : '',
+                    `Downloaded: ${loadedStr} / ${totalStr}`,
+                    etaShort ? `Remaining: ${etaShort}` : ''
+                ].filter(Boolean);
+                txt.innerHTML = parts.map(t => `<span class=\"piece\">${t}</span>`).join('');
+            }
+        };
+
+        try {
+            await downloadAssets(selections, { provider, directoryHandle, onProgress, abortSignal: dlAbortController.signal });
+            alert('Downloads completed.');
+        } catch (e) {
+            if (e && (e.name === 'AbortError' || String(e).toLowerCase().includes('abort'))) {
+                alert('Downloads stopped.');
+            } else {
+                console.error('Download error:', e);
+                alert('Download error. See console for details.');
+            }
+        } finally {
+            startBtn.disabled = false;
+            if (stopBtn) stopBtn.disabled = true;
+        }
+    });
+
+    if (stopBtn) {
+        stopBtn.disabled = true;
+        stopBtn.addEventListener('click', () => {
+            try { dlAbortController?.abort(); } catch {}
+            stopBtn.disabled = true;
+        });
+    }
 }
 
 /**
