@@ -21,7 +21,7 @@ import Feature from 'ol/Feature';
 import Polygon from 'ol/geom/Polygon';
 import Overlay from 'ol/Overlay';
 import { searchStacItems, formatItemForDisplay, bboxToExtent, setProvider, getItemThumbnail } from './stac-service.js';
-import { downloadItemData, downloadAssets, choosePrimaryAssets, deriveFilenameFromAsset } from './download-clients.js';
+import { downloadItemData, downloadAssets, choosePrimaryAssets, deriveFilenameFromAsset, signPlanetaryComputerUrl } from './download-clients.js';
 
 // Global variables
 let map;
@@ -876,7 +876,7 @@ function displayItemsOnMap(items) {
 /**
  * Show item details in modal
  */
-function showItemDetails(item) {
+async function showItemDetails(item) {
     const modal = document.getElementById('item-modal');
     const detailsDiv = document.getElementById('item-details');
 
@@ -895,7 +895,31 @@ function showItemDetails(item) {
     // Robust Date/Time: use item.datetime if already formatted; otherwise derive from properties
     const dt = (item && item.datetime) ? item.datetime : formatItemForDisplay(item).datetime;
 
-    const thumbUrl = getItemThumbnail(item);
+    // Determine provider
+    const providerSel = document.getElementById('provider');
+    const provider = providerSel ? providerSel.value : 'planetary-computer';
+
+    // Always attempt to SAS-sign thumbnail on Item Details for Planetary Computer
+    let thumbUrl = null;
+    const assets = item.assets || {};
+    if (assets.thumbnail && assets.thumbnail.href && provider === 'planetary-computer') {
+        try {
+            const signedThumb = await signPlanetaryComputerUrl(assets.thumbnail.href);
+            // mutate in-memory so downstream (asset pills) also benefit
+            assets.thumbnail.href = signedThumb;
+        } catch (e) {
+            console.warn('Failed to sign thumbnail on details entry:', e);
+        }
+    }
+
+    // Prefer rendered_preview if available; otherwise use (possibly signed) thumbnail; else fallback
+    if (assets.rendered_preview && assets.rendered_preview.href) {
+        thumbUrl = assets.rendered_preview.href;
+    } else if (assets.thumbnail && assets.thumbnail.href) {
+        thumbUrl = assets.thumbnail.href;
+    } else {
+        thumbUrl = getItemThumbnail(item);
+    }
 
     // Build details HTML - improved layout
     let detailsHTML = `

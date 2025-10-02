@@ -204,19 +204,17 @@ function formatDatetime(datetime) {
  * Get thumbnail URL from item assets
  */
 export function getItemThumbnail(item) {
-    if (item.assets && item.assets.thumbnail) {
-        return item.assets.thumbnail.href;
-    }
-    
-    // Try to find a preview or rendered preview
-    if (item.assets) {
-        for (const key of ['preview', 'rendered_preview', 'visual']) {
-            if (item.assets[key]) {
-                return item.assets[key].href;
-            }
+    const assets = item && item.assets ? item.assets : null;
+    if (!assets) return null;
+
+    // Prefer rendered_preview first, then thumbnail, preview, visual
+    const preference = ['rendered_preview', 'thumbnail', 'preview', 'visual'];
+    for (const key of preference) {
+        const a = assets[key];
+        if (a && a.href) {
+            return a.href;
         }
     }
-    
     return null;
 }
 

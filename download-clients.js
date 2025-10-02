@@ -124,6 +124,11 @@ class PlanetaryComputerClient {
   }
 }
 
+// Exported helper to sign Planetary Computer URLs for use in UI (e.g., thumbnails)
+export async function signPlanetaryComputerUrl(url) {
+  return PlanetaryComputerClient.signUrl(url);
+}
+
 class S3Client {
   static parseS3(s3url) {
     // s3://bucket/key -> {bucket, key}
