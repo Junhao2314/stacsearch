@@ -1833,16 +1833,35 @@ async function openDownloadDialog(item) {
             const now = Date.now();
             let st = progressState.get(assetKey);
             if (!st) {
-                st = { lastTime: now, lastLoaded: p.loaded || 0, rate: 0, etaSec: null, startTime: now };
+                st = {
+                    lastTime: now,
+                    lastLoaded: p.loaded || 0,
+                    rate: 0,
+                    etaSec: null,
+                    startTime: now,
+                    speedHistory: [],  // for 3s sliding window
+                    etaHistory: [],    // for 3s sliding window
+                    lastUIUpdate: 0    // for throttling UI updates
+                };
                 progressState.set(assetKey, st);
             }
+
+            // Throttle UI updates to 1 second
+            if (now - st.lastUIUpdate < 1000) return;
+            st.lastUIUpdate = now;
+
             const loaded = p.loaded || 0;
             const total = p.total || 0;
             const dt = (now - st.lastTime) / 1000;
             if (dt > 0 && loaded >= st.lastLoaded) {
                 const inst = (loaded - st.lastLoaded) / dt; // B/s
-                // stronger smoothing for speed
-                st.rate = st.rate ? (0.8 * st.rate + 0.2 * inst) : inst;
+
+                // 2-second sliding window for speed
+                const windowMs = 2000;
+                st.speedHistory.push({ time: now, speed: inst });
+                st.speedHistory = st.speedHistory.filter(h => now - h.time <= windowMs);
+                st.rate = st.speedHistory.reduce((sum, h) => sum + h.speed, 0) / st.speedHistory.length;
+
                 st.lastTime = now;
                 st.lastLoaded = loaded;
             }
@@ -1854,10 +1873,13 @@ async function openDownloadDialog(item) {
             const loadedStr = formatBytes(loaded);
             const totalStr = total ? formatBytes(total) : '?';
 
-            // compute ETA and smooth it as well
+            // compute ETA with 2s sliding window
             let etaRaw = (total && st.rate > 0 && loaded <= total) ? (total - loaded) / st.rate : null;
             if (etaRaw != null) {
-                st.etaSec = (st.etaSec != null) ? (0.85 * st.etaSec + 0.15 * etaRaw) : etaRaw;
+                const windowMs = 2000;
+                st.etaHistory.push({ time: now, eta: etaRaw });
+                st.etaHistory = st.etaHistory.filter(h => now - h.time <= windowMs);
+                st.etaSec = st.etaHistory.reduce((sum, h) => sum + h.eta, 0) / st.etaHistory.length;
             }
             const etaShort = (st.etaSec != null) ? formatDurationShort(st.etaSec) : '';
 
