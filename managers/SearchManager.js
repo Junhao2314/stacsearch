@@ -43,7 +43,15 @@ export class SearchManager {
                 const results = await searchStacItems(params);
                 
                 // Filter out AWS Earth Search Landsat items
-                // 过滤掉 AWS Earth Search 的 Landsat 项目
+                // AWS Earth Search 的 Landsat 数据托管在请求者付费的 S3 存储桶中，
+                // 需要 AWS 凭证才能访问，匿名用户无法下载。
+                // 因此在搜索结果中过滤掉这些项目，避免用户看到无法使用的数据。
+                // 相关配置：config.js 中的 PRIORITY_COLLECTIONS['earth-search'] 也排除了 landsat-c2-l2
+                // 
+                // Filter out Landsat from earth-search results because the data is hosted
+                // in requester-pays S3 buckets requiring AWS credentials for access.
+                // This prevents users from seeing items they cannot download.
+                // Related config: PRIORITY_COLLECTIONS['earth-search'] in config.js also excludes landsat-c2-l2
                 const provider = params.provider || 'planetary-computer';
                 const rawFeatures = (results && Array.isArray(results.features)) ? results.features : [];
                 
@@ -185,12 +193,15 @@ export class SearchManager {
      * @returns {SearchParams} Collected search parameters / 收集的搜索参数
      */
     collectSearchParameters(drawingManager, mapManager) {
+        const limitEl = document.getElementById('limit');
+        const limitValue = limitEl ? parseInt(limitEl.value, 10) : NaN;
+        
         const params = {
             provider: document.getElementById('provider').value,
             collection: document.getElementById('collection').value,
             dateFrom: document.getElementById('date-from-display')?.value || document.getElementById('date-from').value,
             dateTo: document.getElementById('date-to-display')?.value || document.getElementById('date-to').value,
-            limit: parseInt(document.getElementById('limit').value) || 10
+            limit: Number.isFinite(limitValue) && limitValue > 0 ? limitValue : 10
         };
 
         // Priority: drawn polygon > current viewport

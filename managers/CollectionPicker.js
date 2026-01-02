@@ -30,6 +30,12 @@ export class CollectionPicker {
         this._lastFocusedElement = null;
         /** @type {Function|null} */
         this._debouncedSearch = null;
+        /** @type {string|null} */
+        this._currentProvider = null;
+        /** @type {boolean} */
+        this._searchInputBound = false;
+        /** @type {number} */
+        this._detailRequestId = 0;
     }
 
     /**
@@ -60,6 +66,7 @@ export class CollectionPicker {
         if (!modal || !grid || !pag) return;
 
         // Store the element that triggered the modal for focus restoration
+        // 存储触发弹窗的元素以便恢复焦点
         this._lastFocusedElement = document.activeElement;
 
         modal.classList.add('show');
@@ -74,6 +81,7 @@ export class CollectionPicker {
         this.collectionsPage = 1;
 
         // Focus the search input when modal opens
+        // 弹窗打开时聚焦搜索输入框
         if (searchInput) {
             setTimeout(() => searchInput.focus(), 50);
         }
@@ -111,14 +119,19 @@ export class CollectionPicker {
 
         if (searchInput) {
             searchInput.value = '';
-            // Use debounce utility function for debouncing
-            // 使用 debounce 工具函数进行防抖处理
-            this._debouncedSearch = debounce(() => {
-                this.collectionsPage = 1;
-                this._applyFilter(searchInput.value);
-                this._renderPage(provider);
-            }, 200);
-            searchInput.oninput = this._debouncedSearch;
+            this._currentProvider = provider;
+            
+            // Only bind event listener once to avoid memory leaks
+            // 只绑定一次事件监听器以避免内存泄漏
+            if (!this._searchInputBound) {
+                this._debouncedSearch = debounce(() => {
+                    this.collectionsPage = 1;
+                    this._applyFilter(searchInput.value);
+                    this._renderPage(this._currentProvider);
+                }, 200);
+                searchInput.oninput = this._debouncedSearch;
+                this._searchInputBound = true;
+            }
         }
     }
 
@@ -131,6 +144,7 @@ export class CollectionPicker {
         if (modal) modal.classList.remove('show');
         
         // Restore focus to the element that triggered the modal
+        // 恢复焦点到触发弹窗的元素
         if (this._lastFocusedElement && typeof this._lastFocusedElement.focus === 'function') {
             this._lastFocusedElement.focus();
             this._lastFocusedElement = null;
@@ -276,6 +290,7 @@ export class CollectionPicker {
         });
 
         // Keyboard support: Enter and Space to activate
+        // 键盘支持：Enter 和 Space 激活
         div.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -299,10 +314,18 @@ export class CollectionPicker {
         const detailView = document.getElementById('collection-detail');
         if (!detailView) return;
 
+        // Increment request ID to prevent race conditions when user clicks multiple cards quickly
+        // 增加请求 ID 以防止用户快速点击多个卡片时的竞态条件
+        const thisDetailRequestId = ++this._detailRequestId;
+
         let col = meta;
         try {
             col = await getCollection(provider, meta.id);
+            // Check if this request is still the latest one
+            // 检查此请求是否仍是最新的
+            if (thisDetailRequestId !== this._detailRequestId) return;
         } catch (e) {
+            if (thisDetailRequestId !== this._detailRequestId) return;
             col = meta;
         }
 

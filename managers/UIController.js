@@ -313,13 +313,13 @@ export class UIController {
             const lastElement = focusableElements[focusableElements.length - 1];
 
             if (e.shiftKey) {
-                // Shift + Tab
+                // Shift + Tab / Shift + Tab 键
                 if (document.activeElement === firstElement) {
                     lastElement.focus();
                     e.preventDefault();
                 }
             } else {
-                // Tab
+                // Tab / Tab 键
                 if (document.activeElement === lastElement) {
                     firstElement.focus();
                     e.preventDefault();
@@ -998,14 +998,15 @@ export class UIController {
         const map = this.mapManager.getMap();
         if (!map || evt.dragging) return;
 
+        const itemsLayer = this.mapManager.getItemsLayer();
         let hitFeature = null;
         map.forEachFeatureAtPixel(evt.pixel, (feature, layer) => {
-            if (layer === this.mapManager.itemsLayer) {
+            if (layer === itemsLayer) {
                 hitFeature = feature;
                 return true;
             }
             return false;
-        }, { layerFilter: l => l === this.mapManager.itemsLayer, hitTolerance: 5 });
+        }, { layerFilter: l => l === itemsLayer, hitTolerance: 5 });
 
         if (!hitFeature) {
             if (this.mapManager.lastHoverFeatureId) {
@@ -1049,14 +1050,15 @@ export class UIController {
         const map = this.mapManager.getMap();
         if (!map) return;
 
+        const itemsLayer = this.mapManager.getItemsLayer();
         let hitFeature = null;
         map.forEachFeatureAtPixel(evt.pixel, (feature, layer) => {
-            if (layer === this.mapManager.itemsLayer) {
+            if (layer === itemsLayer) {
                 hitFeature = feature;
                 return true;
             }
             return false;
-        }, { layerFilter: l => l === this.mapManager.itemsLayer, hitTolerance: 5 });
+        }, { layerFilter: l => l === itemsLayer, hitTolerance: 5 });
 
         if (!hitFeature) return;
 

@@ -17,6 +17,7 @@ import { fromLonLat, transformExtent } from 'ol/proj';
 import { Style, Stroke, Fill } from 'ol/style';
 import Feature from 'ol/Feature';
 import Overlay from 'ol/Overlay';
+import { getPointResolution } from 'ol/proj';
 
 import { createGoogleSatelliteSource, createGoogleHybridSource, createGoogleMapsSource } from '../basemaps/google.js';
 import { createEsriWorldImageryLayer, createEsriWorldLabelsLayer } from '../basemaps/esri.js';
@@ -51,6 +52,9 @@ export class MapManager {
         this.hoverLabelEl = null;
         /** @type {string|null} */
         this.lastHoverFeatureId = null;
+        
+        /** @type {HTMLElement|null} */
+        this.scaleBarEl = null;
     }
 
     /**
@@ -133,6 +137,9 @@ export class MapManager {
 
         // Initialize hover overlay / 初始化悬停覆盖层
         this._initHoverOverlay();
+        
+        // Initialize scale bar / 初始化比例尺
+        this._initScaleBar();
 
         return this.map;
     }
@@ -199,6 +206,91 @@ export class MapManager {
     }
 
     /**
+     * Initialize custom scale bar with integer values
+     * 初始化自定义比例尺（显示整数值）
+     */
+    _initScaleBar() {
+        // Create scale bar container / 创建比例尺容器
+        this.scaleBarEl = document.createElement('div');
+        this.scaleBarEl.className = 'map-scale-bar';
+        this.scaleBarEl.innerHTML = `
+            <div class="scale-line"></div>
+            <div class="scale-text"></div>
+        `;
+        
+        // Add to map container / 添加到地图容器
+        const mapContainer = this.map.getTargetElement();
+        mapContainer.appendChild(this.scaleBarEl);
+        
+        // Update scale bar on view change / 视图变化时更新比例尺
+        this.map.getView().on('change:resolution', () => this._updateScaleBar());
+        this.map.getView().on('change:center', () => this._updateScaleBar());
+        
+        // Initial update / 初始更新
+        this._updateScaleBar();
+    }
+
+    /**
+     * Update scale bar display with nice integer values
+     * 更新比例尺显示（使用整数值）
+     */
+    _updateScaleBar() {
+        if (!this.scaleBarEl) return;
+        
+        const view = this.map.getView();
+        const center = view.getCenter();
+        const resolution = view.getResolution();
+        
+        if (!center || !resolution) return;
+        
+        // Get meters per pixel at map center / 获取地图中心的每像素米数
+        const metersPerPixel = getPointResolution('EPSG:3857', resolution, center, 'm');
+        
+        // Nice scale values (in meters) / 美观的比例尺数值（米）
+        const niceValues = [
+            1, 2, 5, 10, 20, 50, 100, 200, 500,
+            1000, 2000, 5000, 10000, 20000, 50000, 100000,
+            200000, 500000, 1000000, 2000000, 5000000
+        ];
+        
+        // Target width in pixels / 目标宽度（像素）
+        const targetWidth = 100;
+        const targetMeters = metersPerPixel * targetWidth;
+        
+        // Find the best nice value / 找到最佳的整数值
+        let bestValue = niceValues[0];
+        for (const val of niceValues) {
+            if (val <= targetMeters * 1.5) {
+                bestValue = val;
+            } else {
+                break;
+            }
+        }
+        
+        // Calculate actual width in pixels / 计算实际像素宽度
+        const actualWidth = bestValue / metersPerPixel;
+        
+        // Format the label / 格式化标签
+        let label;
+        if (bestValue >= 1000) {
+            label = `${bestValue / 1000} km`;
+        } else {
+            label = `${bestValue} m`;
+        }
+        
+        // Update DOM / 更新 DOM
+        const scaleLine = this.scaleBarEl.querySelector('.scale-line');
+        const scaleText = this.scaleBarEl.querySelector('.scale-text');
+        
+        if (scaleLine) {
+            scaleLine.style.width = `${Math.round(actualWidth)}px`;
+        }
+        if (scaleText) {
+            scaleText.textContent = label;
+        }
+    }
+
+    /**
      * Set active basemap
      * 设置活动底图
      * 
@@ -260,6 +352,16 @@ export class MapManager {
      */
     getHighlightSource() {
         return this.highlightLayer?.getSource();
+    }
+
+    /**
+     * Get items layer (for layer comparison in event handlers)
+     * 获取项目图层（用于事件处理器中的图层比较）
+     * 
+     * @returns {VectorLayer<VectorSource>|null} Items layer / 项目图层
+     */
+    getItemsLayer() {
+        return this.itemsLayer;
     }
 
     /**

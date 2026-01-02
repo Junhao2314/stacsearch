@@ -1,18 +1,22 @@
 /**
- * @fileoverview Utility functions - 工具函数模块
- * Utility functions module
+ * @fileoverview Utility functions module
+ * 工具函数模块
+ * 
+ * Common utility functions used across the application
+ * 应用程序中使用的通用工具函数
  */
 
 /** @typedef {import('../types.js').PaginateOptions} PaginateOptions */
 /** @typedef {import('../types.js').PaginateResult} PaginateResult */
 
 /**
- * Throttle function - 节流函数
- * 限制函数在指定时间内只能执行一次
+ * Throttle function - limits function execution to once per specified time interval
+ * 节流函数 - 限制函数在指定时间内只能执行一次
+ * 
  * @template {Function} T
- * @param {T} fn - 要节流的函数
- * @param {number} delay - 节流延迟时间（毫秒）
- * @returns {T} 节流后的函数
+ * @param {T} fn - Function to throttle / 要节流的函数
+ * @param {number} delay - Throttle delay in milliseconds / 节流延迟时间（毫秒）
+ * @returns {T} Throttled function / 节流后的函数
  */
 export function throttle(fn, delay) {
     let lastCall = 0;
@@ -30,7 +34,7 @@ export function throttle(fn, delay) {
             lastCall = now;
             fn.apply(this, args);
         } else if (!timeoutId) {
-            // 确保最后一次调用也能执行
+            // Ensure the last call is also executed / 确保最后一次调用也能执行
             timeoutId = setTimeout(() => {
                 lastCall = Date.now();
                 timeoutId = null;
@@ -41,12 +45,13 @@ export function throttle(fn, delay) {
 }
 
 /**
- * Debounce function - 防抖函数
- * 延迟执行函数，直到停止调用一段时间后
+ * Debounce function - delays function execution until after a period of inactivity
+ * 防抖函数 - 延迟执行函数，直到停止调用一段时间后
+ * 
  * @template {Function} T
- * @param {T} fn - 要防抖的函数
- * @param {number} delay - 防抖延迟时间（毫秒）
- * @returns {T} 防抖后的函数
+ * @param {T} fn - Function to debounce / 要防抖的函数
+ * @param {number} delay - Debounce delay in milliseconds / 防抖延迟时间（毫秒）
+ * @returns {T} Debounced function / 防抖后的函数
  */
 export function debounce(fn, delay) {
     let timeoutId = null;

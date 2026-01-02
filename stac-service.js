@@ -19,6 +19,9 @@ let currentProvider = DEFAULT_PROVIDER;
 /**
  * Extract error message from response
  * 从响应中提取错误信息
+ * 
+ * @param {Response} response - Fetch response / Fetch 响应
+ * @returns {Promise<string>} Error message / 错误信息
  */
 async function extractErrorMessage(response) {
     try {
@@ -36,6 +39,10 @@ async function extractErrorMessage(response) {
 /**
  * Build error message from response
  * 从响应构建错误信息
+ * 
+ * @param {Response} response - Fetch response / Fetch 响应
+ * @param {string} [prefix='Request failed'] - Error message prefix / 错误信息前缀
+ * @returns {Promise<string>} Formatted error message / 格式化的错误信息
  */
 async function buildErrorMessage(response, prefix = 'Request failed') {
     const reason = await extractErrorMessage(response);
@@ -130,20 +137,34 @@ export function setProvider(provider) {
  * @param {string} provider - STAC provider key (optional, defaults to currentProvider) / STAC 数据源键名（可选，默认为 currentProvider）
  * @param {string} collectionId - Collection ID / 集合 ID
  * @param {string} itemId - Item ID / 项目 ID
+ * @returns {Promise<STACItem>} Item details / 项目详情
  */
 export async function getItemDetails(provider, collectionId, itemId) {
-    const apiUrl = STAC_PROVIDERS[provider || currentProvider]?.url;
+    const resolvedProvider = provider || currentProvider;
+    const apiUrl = STAC_PROVIDERS[resolvedProvider]?.url;
+    
+    console.debug('[STAC] getItemDetails called:', { provider: resolvedProvider, collectionId, itemId });
+    
     if (!apiUrl) {
-        throw new Error(`Invalid provider: ${provider || currentProvider}`);
+        console.error('[STAC] Invalid provider:', resolvedProvider);
+        throw new Error(`Invalid provider: ${resolvedProvider}`);
     }
 
-    const response = await fetch(`${apiUrl}/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(itemId)}`);
+    const url = `${apiUrl}/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(itemId)}`;
+    console.debug('[STAC] Fetching item details from:', url);
+    
+    const response = await fetch(url);
 
     if (!response.ok) {
-        throw new Error(await buildErrorMessage(response, 'Failed to fetch item details'));
+        const errorMsg = await buildErrorMessage(response, 'Failed to fetch item details');
+        console.error('[STAC] getItemDetails failed:', errorMsg);
+        throw new Error(errorMsg);
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.debug('[STAC] getItemDetails success:', { itemId: data.id, collection: data.collection });
+    
+    return data;
 }
 
 /**

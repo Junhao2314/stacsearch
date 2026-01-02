@@ -22,6 +22,13 @@ const CONFIG = {
   s3RequesterPays: DOWNLOAD_CONFIG.s3RequesterPays,
 };
 
+/**
+ * Derive filename from URL
+ * 从 URL 推导文件名
+ * 
+ * @param {string} url - URL to extract filename from / 要提取文件名的 URL
+ * @returns {string} Derived filename / 推导出的文件名
+ */
 function deriveFilenameFromUrl(url) {
   try {
     const u = new URL(url);
@@ -48,10 +55,24 @@ export function deriveFilenameFromAsset(asset) {
   return 'download';
 }
 
+/**
+ * Sanitize filename by removing invalid characters
+ * 通过移除无效字符来清理文件名
+ * 
+ * @param {string} name - Filename to sanitize / 要清理的文件名
+ * @returns {string} Sanitized filename / 清理后的文件名
+ */
 function sanitizeFilename(name) {
   return String(name).replace(/[\/:*?"<>|]+/g, '_');
 }
 
+/**
+ * Save blob to file using download link
+ * 使用下载链接将 blob 保存为文件
+ * 
+ * @param {Blob} blob - Blob to save / 要保存的 Blob
+ * @param {string} filename - Filename for download / 下载的文件名
+ */
 async function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   try {
@@ -67,7 +88,19 @@ async function saveBlob(blob, filename) {
   }
 }
 
+/**
+ * Default HTTP download client
+ * 默认 HTTP 下载客户端
+ */
 class DefaultHttpClient {
+  /**
+   * Download file via HTTP(S)
+   * 通过 HTTP(S) 下载文件
+   * 
+   * @param {string} url - URL to download / 要下载的 URL
+   * @param {string} [filename] - Optional filename / 可选的文件名
+   * @returns {Promise<boolean>} Whether download succeeded / 下载是否成功
+   */
   static async download(url, filename) {
     try {
       const resp = await fetch(url, {
@@ -89,9 +122,21 @@ class DefaultHttpClient {
   }
 }
 
+/**
+ * Planetary Computer download client with URL signing
+ * 带 URL 签名的 Planetary Computer 下载客户端
+ */
 class PlanetaryComputerClient {
+  /**
+   * Sign URL using Planetary Computer SAS API
+   * 使用 Planetary Computer SAS API 签名 URL
+   * 
+   * @param {string} url - URL to sign / 要签名的 URL
+   * @returns {Promise<string>} Signed URL / 签名后的 URL
+   */
   static async signUrl(url) {
     // If already appears signed with SAS, return as-is
+    // 如果已经有 SAS 签名，直接返回
     try {
       const u = new URL(url);
       const qp = u.searchParams;
@@ -114,12 +159,13 @@ class PlanetaryComputerClient {
     }
 
     // Read once as text, then try JSON first, else treat as plain URL
+    // 先读取为文本，然后尝试解析 JSON，否则作为纯 URL 处理
     const body = await resp.text();
     try {
       const data = JSON.parse(body);
       if (data && data.href) return data.href;
     } catch {
-      // not JSON
+      // not JSON / 不是 JSON
     }
     if (body && /^https?:\/\//i.test(body.trim())) {
       return body.trim();
@@ -127,6 +173,14 @@ class PlanetaryComputerClient {
     throw new Error('PC sign returned invalid payload');
   }
 
+  /**
+   * Download file using signed URL
+   * 使用签名 URL 下载文件
+   * 
+   * @param {string} url - URL to download / 要下载的 URL
+   * @param {string} [filename] - Optional filename / 可选的文件名
+   * @returns {Promise<boolean>} Whether download succeeded / 下载是否成功
+   */
   static async download(url, filename) {
     const signed = await PlanetaryComputerClient.signUrl(url);
     return DefaultHttpClient.download(signed, filename);
@@ -148,25 +202,48 @@ export async function signPlanetaryComputerUrl(url) {
     return await PlanetaryComputerClient.signUrl(url);
   } catch (e) {
     console.warn('Failed to sign Planetary Computer URL:', url, e);
-    throw e; // Re-throw so callers can handle appropriately
+    throw e; // Re-throw so callers can handle appropriately / 重新抛出以便调用者可以适当处理
   }
 }
 
+/**
+ * S3 download client for s3:// URLs
+ * 用于 s3:// URL 的 S3 下载客户端
+ */
 class S3Client {
+  /**
+   * Parse S3 URL to bucket and key
+   * 解析 S3 URL 为 bucket 和 key
+   * 
+   * @param {string} s3url - S3 URL (s3://bucket/key)
+   * @returns {{bucket: string, key: string}|null} Parsed result or null / 解析结果或 null
+   */
   static parseS3(s3url) {
-    // s3://bucket/key -> {bucket, key}
-    // 解析 S3 URL 为 bucket 和 key
     const m = /^s3:\/\/([^\/]+)\/(.+)$/.exec(s3url);
     if (!m) return null;
     return { bucket: m[1], key: m[2] };
   }
 
+  /**
+   * Convert S3 bucket/key to HTTPS URL
+   * 将 S3 bucket/key 转换为 HTTPS URL
+   * 
+   * @param {{bucket: string, key: string}} params - Bucket and key / Bucket 和 key
+   * @returns {string} HTTPS URL / HTTPS URL
+   */
   static toHttps({ bucket, key }) {
-    // Virtual-hosted–style URL
-    // 虚拟主机风格的 URL
+    // Virtual-hosted–style URL / 虚拟主机风格的 URL
     return `https://${bucket}.s3.amazonaws.com/${encodeURI(key)}`;
   }
 
+  /**
+   * Download file from S3 URL
+   * 从 S3 URL 下载文件
+   * 
+   * @param {string} s3url - S3 URL to download / 要下载的 S3 URL
+   * @param {string} [filename] - Optional filename / 可选的文件名
+   * @returns {Promise<boolean>} Whether download succeeded / 下载是否成功
+   */
   static async download(s3url, filename) {
     const parsed = S3Client.parseS3(s3url);
     if (!parsed) throw new Error('Invalid s3 url');
@@ -184,6 +261,7 @@ class S3Client {
     } catch (err) {
       console.warn('S3Client direct HTTPS failed (likely requires signed request or CORS). s3url:', s3url, err);
       // Fallback: open the HTTPS URL; if blocked, inform user
+      // 回退：打开 HTTPS URL；如果被阻止，通知用户
       try {
         window.open(httpsUrl, '_blank', 'noopener');
       } catch {}
@@ -192,6 +270,13 @@ class S3Client {
   }
 }
 
+/**
+ * Check if URL is an Azure Blob Storage URL
+ * 检查 URL 是否为 Azure Blob 存储 URL
+ * 
+ * @param {string} url - URL to check / 要检查的 URL
+ * @returns {boolean} Whether URL is Azure Blob / 是否为 Azure Blob URL
+ */
 function isAzureBlobUrl(url) {
   try {
     const u = new URL(url);
@@ -199,6 +284,14 @@ function isAzureBlobUrl(url) {
   } catch { return false; }
 }
 
+/**
+ * Pick appropriate download client based on asset and provider
+ * 根据资源和提供者选择合适的下载客户端
+ * 
+ * @param {STACAsset} asset - Asset to download / 要下载的资源
+ * @param {string} provider - STAC provider key / STAC 数据源键名
+ * @returns {{type: string}} Client type / 客户端类型
+ */
 function pickDownloadClient(asset, provider) {
   const href = String(asset?.href || '');
   if (href.startsWith('s3://')) return { type: 's3' };
@@ -268,6 +361,15 @@ export async function downloadItemData(item) {
   }
 }
 
+/**
+ * Stream response to writer with progress tracking
+ * 将响应流式传输到写入器并跟踪进度
+ * 
+ * @param {Response} resp - Fetch response / Fetch 响应
+ * @param {FileSystemWritableFileStream} writer - File writer / 文件写入器
+ * @param {function(DownloadProgress): void} [onProgress] - Progress callback / 进度回调
+ * @param {AbortSignal} [abortSignal] - Abort signal / 中止信号
+ */
 async function streamToWriter(resp, writer, onProgress, abortSignal) {
   const contentLength = parseInt(resp.headers.get('content-length') || '0', 10) || 0;
   const reader = resp.body?.getReader ? resp.body.getReader() : null;
@@ -291,6 +393,14 @@ async function streamToWriter(resp, writer, onProgress, abortSignal) {
   }
 }
 
+/**
+ * Resolve final download URL based on asset and provider
+ * 根据资源和提供者解析最终下载 URL
+ * 
+ * @param {STACAsset} asset - Asset to resolve / 要解析的资源
+ * @param {string} provider - STAC provider key / STAC 数据源键名
+ * @returns {Promise<string>} Resolved URL / 解析后的 URL
+ */
 async function resolveFinalUrl(asset, provider) {
   const href = String(asset.href || '');
   const client = pickDownloadClient(asset, provider);
@@ -366,6 +476,7 @@ export async function downloadAssets(selections, { provider, directoryHandle, on
       if (abortSignal?.aborted) { aborted = true; break; }
       console.error(`Download failed for ${sel.key}:`, e);
       // Fallback: open the URL in a new tab/window so the browser can handle the download without CORS
+      // 回退：在新标签页/窗口中打开 URL，让浏览器处理下载而不受 CORS 限制
       try { window.open(finalUrl, '_blank', 'noopener'); } catch {}
     }
   }

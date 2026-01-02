@@ -153,6 +153,15 @@ export const SEARCH_CONFIG = {
  * 
  * Keys must match STAC_PROVIDERS keys; values are collection ID arrays in display order
  * 键名必须与 STAC_PROVIDERS 键名一致；值为集合 ID 数组，按显示顺序排列
+ * 
+ * Note on earth-search: landsat-c2-l2 is excluded because AWS Earth Search's Landsat data
+ * requires AWS credentials (requester-pays S3 bucket), making it inaccessible for anonymous users.
+ * The corresponding filter logic is in SearchManager.js to remove any Landsat results from search.
+ * 
+ * 关于 earth-search 的说明：不包含 landsat-c2-l2，因为 AWS Earth Search 的 Landsat 数据
+ * 需要 AWS 凭证（请求者付费的 S3 存储桶），匿名用户无法访问。
+ * SearchManager.js 中有对应的过滤逻辑，会从搜索结果中移除 Landsat 数据。
+ * 
  * @type {Object<string, string[]>}
  */
 export const PRIORITY_COLLECTIONS = {
@@ -165,6 +174,8 @@ export const PRIORITY_COLLECTIONS = {
     'earth-search': [
         'sentinel-2-l2a',     // Sentinel-2 Level-2A
         'sentinel-1-grd',     // Sentinel-1 GRD
+        // Note: landsat-c2-l2 excluded - requires AWS credentials (see comment above)
+        // 注意：不包含 landsat-c2-l2 - 需要 AWS 凭证（见上方注释）
     ],
 };
 

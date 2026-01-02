@@ -1,15 +1,22 @@
-/* Reset and Base Styles */
+/* 
+ * Reset and Base Styles
+ * 重置和基础样式
+ */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
+/* 
+ * CSS Variables - Light Theme
+ * CSS 变量 - 浅色主题
+ */
 :root {
-    /* Unified purple theme */
-    --primary-color: #6b46c1;     /* Purple 600 */
-    --secondary-color: #805ad5;   /* Purple 500 */
-    --accent-color: #9f7aea;      /* Purple 400 */
+    /* Unified purple theme - Light / 统一紫色主题 - 浅色 */
+    --primary-color: #6b46c1;     /* Purple 600 / 紫色 600 */
+    --secondary-color: #805ad5;   /* Purple 500 / 紫色 500 */
+    --accent-color: #9f7aea;      /* Purple 400 / 紫色 400 */
     --text-primary: #1a202c;
     --text-secondary: #4a5568;
     --text-muted: #718096;
@@ -23,6 +30,69 @@
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
+/* 
+ * Dark theme
+ * 深色主题
+ */
+[data-theme="dark"] {
+    --primary-color: #9f7aea;     /* Purple 400 / 紫色 400 */
+    --secondary-color: #b794f4;   /* Purple 300 / 紫色 300 */
+    --accent-color: #d6bcfa;      /* Purple 200 / 紫色 200 */
+    --text-primary: #f7fafc;
+    --text-secondary: #cbd5e0;
+    --text-muted: #a0aec0;
+    --bg-primary: #1a202c;
+    --bg-secondary: #2d3748;
+    --bg-tertiary: #4a5568;
+    --border-color: #4a5568;
+    --border-focus: #9f7aea;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+
+/* 
+ * View Transitions API - Theme Toggle Animation
+ * 视图过渡 API - 主题切换动画
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+    z-index: 1;
+}
+
+::view-transition-new(root) {
+    z-index: 9999;
+}
+
+/* 
+ * Disable transitions during theme change to prevent flicker
+ * 主题切换时禁用过渡以防止闪烁
+ */
+.theme-transitioning,
+.theme-transitioning * {
+    transition: none !important;
+}
+
+/* 
+ * Reduced motion preference
+ * 减少动画偏好
+ */
+@media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+        animation: none !important;
+    }
+}
+
+/* 
+ * Body Base Styles
+ * 页面基础样式
+ */
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background-color: var(--bg-secondary);
@@ -30,7 +100,10 @@ body {
     line-height: 1.6;
 }
 
-/* Header */
+/* 
+ * Header
+ * 头部
+ */
 .header {
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
@@ -55,7 +128,10 @@ body {
     font-weight: 400;
 }
 
-/* Author banner */
+/* 
+ * Author banner
+ * 作者横幅
+ */
 .author-banner {
     margin-top: 0.5rem;
     display: flex;
@@ -71,6 +147,8 @@ body {
     border: 1px solid var(--border-color);
     padding: 0.25rem 0.6rem;
     border-radius: 999px;
+    height: 28px;
+    box-sizing: border-box;
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 .author-link:hover {
@@ -85,7 +163,10 @@ body {
     display: inline-block;
 }
 
-/* Header subline row under title for tagline and author link (centered tagline) */
+/* 
+ * Header subline row under title for tagline and author link (centered tagline)
+ * 标题下方的副标题行，用于标语和作者链接（居中标语）
+ */
 .header-subline {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -98,24 +179,86 @@ body {
     justify-self: center;
     margin: 0;
 }
-/* Place author link at far right without affecting tagline center */
-.header-subline .author-link {
+/* Right side container for author link and theme toggle */
+.header-right {
     grid-column: 3;
     justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
-/* Small screens: stack with author link below tagline */
+/* 
+ * Theme toggle button - matches author-link style
+ * 主题切换按钮 - 与作者链接样式匹配
+ */
+.theme-toggle-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border: 1px solid var(--border-color);
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    height: 28px;
+    box-sizing: border-box;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--primary-color);
+    border-color: var(--secondary-color);
+    transform: translateY(-1px);
+}
+.theme-toggle-btn:focus {
+    outline: 2px solid var(--secondary-color);
+    outline-offset: 2px;
+}
+/* 
+ * Show sun icon in dark mode, moon icon in light mode
+ * 深色模式显示太阳图标，浅色模式显示月亮图标
+ */
+.theme-toggle-btn .icon-sun {
+    display: none;
+}
+.theme-toggle-btn .icon-moon {
+    display: block;
+}
+[data-theme="dark"] .theme-toggle-btn .icon-sun {
+    display: block;
+}
+[data-theme="dark"] .theme-toggle-btn .icon-moon {
+    display: none;
+}
+/* 
+ * Small screens: stack with author link below tagline
+ * 小屏幕：作者链接堆叠在标语下方
+ */
 @media (max-width: 640px) {
     .header-subline {
         grid-template-columns: 1fr;
     }
-    .header-subline .author-link {
+    .header-subline p {
+        grid-column: 1;
+    }
+    .header-right {
         grid-column: 1;
         justify-self: center;
         margin-top: 0.4rem;
     }
 }
 
-/* Main Container Layout */
+/* 
+ * Main Container Layout
+ * 主容器布局
+ */
 .main-container {
     display: flex;
     height: calc(100vh - 84px);
@@ -123,7 +266,10 @@ body {
     padding: 1rem;
 }
 
-/* Search Panel */
+/* 
+ * Search Panel
+ * 搜索面板
+ */
 .search-panel {
     width: 300px;
     background: var(--bg-primary);
@@ -145,7 +291,10 @@ body {
     letter-spacing: -0.025em;
 }
 
-/* Form Groups */
+/* 
+ * Form Groups
+ * 表单组
+ */
 .form-group {
     margin-bottom: 1.15rem;
 }
@@ -178,7 +327,10 @@ body {
     box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
 }
 
-/* Collection select with ellipsis */
+/* 
+ * Collection select with ellipsis
+ * 集合选择框带省略号
+ */
 #collection {
     max-width: 100%;
 }
@@ -189,19 +341,25 @@ body {
     white-space: nowrap;
 }
 
-/* Tooltip for collection items */
+/* Tooltip for collection items / 集合项的工具提示 */
 .form-group select:hover option:hover {
     background: var(--bg-tertiary);
 }
 
-/* Date Range */
+/* 
+ * Date Range
+ * 日期范围
+ */
 .date-range {
     display: flex;
     align-items: center;
     gap: 0.25rem;
 }
 
-/* Hybrid date input wrapper */
+/* 
+ * Hybrid date input wrapper
+ * 混合日期输入包装器
+ */
 .date-input-wrapper {
     position: relative;
     flex: 1 1 45%;
@@ -274,7 +432,10 @@ body {
     line-height: 1;
 }
 
-/* Bbox inputs */
+/* 
+ * Bbox inputs
+ * 边界框输入
+ */
 .bbox-inputs {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -288,7 +449,10 @@ body {
     min-width: 0;
 }
 
-/* Buttons */
+/* 
+ * Buttons
+ * 按钮
+ */
 .primary-btn,
 .secondary-btn {
     width: 100%;
@@ -333,7 +497,10 @@ body {
     border-color: var(--text-secondary);
 }
 
-/* BBox inputs with hemisphere selects */
+/* 
+ * BBox inputs with hemisphere selects
+ * 带半球选择的边界框输入
+ */
 .bbox-inputs {
     display: grid;
     grid-template-columns: repeat(2, max-content);
@@ -351,7 +518,10 @@ body {
     gap: 0.25rem;
 }
 
-/* Make input and select same height and proportional widths */
+/* 
+ * Make input and select same height and proportional widths
+ * 使输入框和选择框高度相同且宽度成比例
+ */
 .bbox-field input,
 .bbox-field select {
     width: auto; /* override form-group 100% */
@@ -360,7 +530,10 @@ body {
     padding: 0.4rem 0.5rem;
 }
 
-/* Smaller overall width: explicit sizing (keeps 2:1 ratio approx.) */
+/* 
+ * Smaller overall width: explicit sizing (keeps 2:1 ratio approx.)
+ * 较小的整体宽度：显式尺寸（保持约 2:1 比例）
+ */
 .bbox-field input {
     flex: 0 0 auto;
     width: 85px;
@@ -382,17 +555,25 @@ body {
     padding-right: 0.8rem;
 }
 
-/* Remove number input spin buttons for cleaner look */
+/* 
+ * Remove number input spin buttons for cleaner look
+ * 移除数字输入的旋转按钮以获得更简洁的外观
+ */
 .bbox-field input[type="number"]::-webkit-outer-spin-button,
 .bbox-field input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
+    appearance: none;
     margin: 0;
 }
 .bbox-field input[type="number"] {
     -moz-appearance: textfield;
+    appearance: textfield;
 }
 
-/* Map Container */
+/* 
+ * Map Container
+ * 地图容器
+ */
 .map-container {
     flex: 1;
     position: relative;
@@ -408,7 +589,10 @@ body {
     height: 100%;
 }
 
-/* Map hover label */
+/* 
+ * Map hover label
+ * 地图悬停标签
+ */
 .map-hover-label {
     pointer-events: none;
     background: rgba(26, 32, 44, 0.88);
@@ -420,7 +604,62 @@ body {
     white-space: nowrap;
 }
 
-/* Navigation Controls */
+/* ========================================
+   Map Control Buttons - Unified Style
+   地图控件按钮 - 统一样式
+   ======================================== */
+
+/* Base style for all map control buttons / 所有地图控件按钮的基础样式 */
+.map-control-btn {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+}
+
+.map-control-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--primary-color);
+    border-color: var(--secondary-color);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.map-control-btn:active {
+    transform: scale(0.95);
+    box-shadow: var(--shadow-sm);
+}
+
+.map-control-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2px;
+}
+
+.map-control-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.map-control-btn.active:hover {
+    background: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: white;
+}
+
+/* 
+ * Navigation Controls
+ * 导航控件
+ */
 .map-controls {
     position: absolute;
     top: 1rem;
@@ -428,56 +667,179 @@ body {
     right: auto;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
-    background: var(--bg-primary);
-    border-radius: 6px;
-    padding: 0.25rem;
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--border-color);
+    gap: 0.5rem;
     z-index: 100;
+    pointer-events: none;
 }
 
-/* Basemap switcher */
+/* Ensure buttons catch events / 确保按钮捕获事件 */
+.map-controls > * {
+    pointer-events: auto;
+}
+
+.nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--bg-primary);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+    padding: 4px;
+}
+
+.nav-divider {
+    border: 0;
+    height: 1px;
+    background: var(--border-color);
+    margin: 2px 6px;
+    width: auto;
+    opacity: 0.6;
+}
+
+/* 
+ * Navigation buttons - unified with tool-btn
+ * 导航按钮 - 与工具按钮统一
+ */
+.nav-btn {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-primary);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--primary-color);
+}
+
+.nav-btn:active {
+    transform: scale(0.95);
+}
+
+.nav-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2px;
+}
+
+/* 
+ * Standalone button outside nav-group
+ * 导航组外的独立按钮
+ */
+.standalone-btn {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 4px;
+}
+
+.standalone-btn .nav-btn,
+.standalone-btn.nav-btn {
+    border: none;
+    box-shadow: none;
+}
+
+/* 
+ * Basemap switcher - unified with map controls
+ * 底图切换器 - 与地图控件统一
+ */
 .map-basemap {
     position: absolute;
     top: 1rem;
     right: 1rem;
     background: var(--bg-primary);
-    border-radius: 6px;
-    padding: 0.35rem 0.5rem;
-    box-shadow: var(--shadow-md);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: var(--shadow-sm);
     border: 1px solid var(--border-color);
     z-index: 100;
+    max-width: calc(100% - 6rem);
+    transition: all 0.2s ease;
+}
+
+.map-basemap:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--secondary-color);
 }
 
 .map-basemap select {
-    width: 200px;
-    height: 36px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
+    width: auto;
+    min-width: 120px;
+    max-width: 100%;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
     font-size: 0.85rem;
-    background: var(--bg-primary);
+    background: transparent;
     color: var(--text-primary);
+    padding: 0 2rem 0 0.75rem;
+    cursor: pointer;
+    /* Custom dropdown arrow */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: all 0.2s ease;
 }
 
 .map-basemap select:focus {
     outline: none;
-    border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+    background-color: var(--bg-tertiary);
 }
 
-/* Drawing Tools Toolbar */
+.map-basemap select:hover {
+    background-color: var(--bg-tertiary);
+}
+
+/* 
+ * Responsive basemap switcher
+ * 响应式底图切换器
+ */
+@media (max-width: 480px) {
+    .map-basemap {
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 3px;
+    }
+    
+    .map-basemap select {
+        min-width: 100px;
+        height: 30px;
+        font-size: 0.8rem;
+        padding: 0 1.75rem 0 0.5rem;
+    }
+}
+
+/* 
+ * Drawing Tools Toolbar - unified with map controls
+ * 绘制工具栏 - 与地图控件统一
+ */
 .map-toolbar.drawing-tools {
     position: absolute;
-    top: 12rem;
+    top: 11.5rem;
     left: 1rem;
     right: auto;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 2px;
     background: var(--bg-primary);
-    border-radius: 6px;
-    padding: 0.25rem;
+    border-radius: 10px;
+    padding: 4px;
     box-shadow: var(--shadow-md);
     border: 1px solid var(--border-color);
     z-index: 100;
@@ -486,7 +848,7 @@ body {
 .drawing-tools-content {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 2px;
     transition: all 0.2s ease;
 }
 
@@ -497,71 +859,55 @@ body {
 .tool-group {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 2px;
 }
 
-/* Tool buttons for drawing */
+/* 
+ * Tool buttons for drawing - unified style
+ * 绘制工具按钮 - 统一样式
+ */
 .tool-btn {
     width: 40px;
     height: 40px;
     background: var(--bg-primary);
-    border: 1px solid transparent;
-    border-radius: 4px;
+    border: none;
+    border-radius: 6px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     color: var(--text-secondary);
 }
 
 .tool-btn:hover {
     background: var(--bg-tertiary);
-    color: var(--text-primary);
+    color: var(--primary-color);
 }
 
-.tool-btn.active {
-    background: var(--secondary-color);
-    color: white;
-    border-color: var(--secondary-color);
-}
-
-.tool-btn svg {
-    width: 16px;
-    height: 16px;
-}
-
-/* Navigation buttons */
-.nav-btn {
-    width: 42px;
-    height: 42px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    color: var(--text-secondary);
-}
-
-.nav-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border-color: var(--secondary-color);
-}
-
-.nav-btn:active {
+.tool-btn:active {
     transform: scale(0.95);
 }
 
-.nav-btn svg {
-    width: 18px;
-    height: 18px;
+.tool-btn.active {
+    background: var(--primary-color);
+    color: white;
 }
 
-/* Responsive positioning */
+.tool-btn.active:hover {
+    background: var(--secondary-color);
+}
+
+.tool-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2px;
+}
+
+/* 
+ * Responsive positioning
+ * 响应式定位
+ */
 @media (max-width: 768px) {
     .map-toolbar.drawing-tools {
         top: auto;
@@ -576,16 +922,24 @@ body {
         right: auto;
     }
     
+    .map-control-btn,
     .nav-btn,
     .tool-btn {
         width: 36px;
         height: 36px;
     }
     
+    .map-control-btn svg,
     .nav-btn svg,
     .tool-btn svg {
         width: 18px;
         height: 18px;
+    }
+    
+    .nav-group,
+    .map-toolbar.drawing-tools {
+        border-radius: 8px;
+        padding: 3px;
     }
 }
 
@@ -599,7 +953,10 @@ body {
     display: flex;
 }
 
-/* Results Panel */
+/* 
+ * Results Panel
+ * 结果面板
+ */
 .results-panel {
     width: 320px;
     background: var(--bg-primary);
@@ -627,14 +984,20 @@ body {
     font-weight: 500;
 }
 
-/* Active result item highlight */
+/* 
+ * Active result item highlight
+ * 活动结果项高亮
+ */
 .result-item.active {
     background: #ffffff;
     border-color: #ffc107;
     box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.45), var(--shadow-md);
 }
 
-/* Result Items */
+/* 
+ * Result Items
+ * 结果项
+ */
 .result-item {
     position: relative;
     background: var(--bg-secondary);
@@ -664,12 +1027,15 @@ body {
     text-overflow: ellipsis;
 }
 
-/* On hover, allow the full ID to wrap and be visible */
+/* On hover, allow the full ID to wrap and be visible / 悬停时允许完整 ID 换行显示 */
 .result-item:hover h3 {
     white-space: normal;
 }
 
-/* Result item layout with thumbnail */
+/* 
+ * Result item layout with thumbnail
+ * 带缩略图的结果项布局
+ */
 .result-foot {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -701,7 +1067,10 @@ body {
     margin-bottom: 0.25rem;
 }
 
-/* Pagination */
+/* 
+ * Pagination
+ * 分页
+ */
 .pagination {
     display: flex;
     align-items: center;
@@ -736,7 +1105,10 @@ body {
     font-size: 0.85rem;
 }
 
-/* Modal */
+/* 
+ * Modal
+ * 弹窗
+ */
 .modal {
     display: none;
     position: fixed;
@@ -772,14 +1144,20 @@ body {
     border-bottom: 2px solid #e9ecef;
 }
 
-/* Item Details */
+/* 
+ * Item Details
+ * 项目详情
+ */
 #item-details {
     font-size: 0.9rem;
 }
 
 .hidden { display: none; }
 
-/* Summary header with thumbnail and meta */
+/* 
+ * Summary header with thumbnail and meta
+ * 带缩略图和元数据的摘要头部
+ */
 .item-summary {
     display: grid;
     grid-template-columns: 220px 1fr;
@@ -805,7 +1183,10 @@ body {
     margin-bottom: 0.5rem;
 }
 
-/* Asset detail box */
+/* 
+ * Asset detail box
+ * 资源详情框
+ */
 .asset-detail {
     margin-top: 0.75rem;
     background: #f8f9fa;
@@ -842,7 +1223,7 @@ body {
     align-items: center;
 }
 
-/* Value cell with trailing action button */
+/* Value cell with trailing action button / 带尾部操作按钮的值单元格 */
 .value-with-action {
     display: flex;
     align-items: center;
@@ -852,7 +1233,7 @@ body {
     margin-left: auto;
 }
 
-/* Value cell with trailing action button */
+/* Value cell with trailing action button (duplicate for specificity) / 带尾部操作按钮的值单元格（重复以增加特异性） */
 .value-with-action {
     display: flex;
     align-items: center;
@@ -900,7 +1281,10 @@ body {
     margin: 0.4rem 0 0.6rem 0; /* sits between summary and Assets */
 }
 
-/* Assets grid */
+/* 
+ * Assets grid
+ * 资源网格
+ */
 .assets-grid {
     display: flex;
     flex-wrap: wrap;
@@ -966,7 +1350,10 @@ body {
     word-break: break-all;
 }
 
-/* Download Dialog Overlay */
+/* 
+ * Download Dialog Overlay
+ * 下载对话框遮罩层
+ */
 .download-overlay {
     position: fixed;
     inset: 0;
@@ -1090,7 +1477,10 @@ body {
     white-space: nowrap;
 }
 
-/* Loading State */
+/* 
+ * Loading State
+ * 加载状态
+ */
 .loading {
     text-align: center;
     padding: 2rem;
@@ -1113,7 +1503,10 @@ body {
     to { transform: rotate(360deg); }
 }
 
-/* Error State */
+/* 
+ * Error State
+ * 错误状态
+ */
 .error {
     background: #fee;
     color: #c00;
@@ -1122,7 +1515,10 @@ body {
     margin-bottom: 1rem;
 }
 
-/* Responsive Design */
+/* 
+ * Responsive Design
+ * 响应式设计
+ */
 @media (max-width: 1200px) {
     .main-container {
         flex-direction: column;
@@ -1134,7 +1530,7 @@ body {
     }
 }
 
-/* Modal-specific button sizing: Back/Import equal width and alignment */
+/* Modal-specific button sizing: Back/Import equal width and alignment / 弹窗特定按钮尺寸：返回/导入等宽对齐 */
 #collection-modal .collection-detail .actions .primary-btn,
 #collection-modal .collection-detail .actions .secondary-btn {
     width: 140px !important;
@@ -1147,7 +1543,7 @@ body {
     margin-top: 0;
 }
 
-/* Compact card layout in modal and hide ID line */
+/* Compact card layout in modal and hide ID line / 弹窗中的紧凑卡片布局并隐藏 ID 行 */
 #collection-modal .collection-grid { gap: 0.5rem; }
 #collection-modal .collection-card {
     grid-template-columns: 120px 1fr;
@@ -1169,7 +1565,7 @@ body {
 #collection-modal .collection-card .info .id { display: none; }
 #collection-modal .collection-card .info .keywords { margin-top: auto; }
 
-/* Larger pagination fonts inside collection modal */
+/* Larger pagination fonts inside collection modal / 集合弹窗内更大的分页字体 */
 #collection-modal .collection-pagination .pager-btn {
     font-size: 1rem;
     padding: 0.4rem 0.9rem;
@@ -1178,7 +1574,7 @@ body {
     font-size: 1rem;
 }
 
-/* Collection Picker UI */
+/* Collection Picker UI / 集合选择器 UI */
 .collection-picker {
     display: flex;
     flex-direction: column;
@@ -1194,7 +1590,7 @@ body {
     max-width: 900px;
 }
 
-/* Tighter spacing between modal title and search box */
+/* Tighter spacing between modal title and search box / 弹窗标题和搜索框之间更紧凑的间距 */
 #collection-modal .modal-content h2 {
     margin-bottom: 0.6rem;
     padding-bottom: 0.6rem;
@@ -1204,7 +1600,10 @@ body {
     margin-bottom: 0.5rem;
 }
 
-/* Collection detail view - redesigned */
+/* 
+ * Collection detail view - redesigned
+ * 集合详情视图 - 重新设计
+ */
 .collection-detail {
     display: flex;
     flex-direction: column;
@@ -1214,7 +1613,10 @@ body {
     padding-right: 0.5rem;
 }
 
-/* Header section with thumbnail and title */
+/* 
+ * Header section with thumbnail and title
+ * 带缩略图和标题的头部区域
+ */
 .collection-detail .header-section {
     display: grid;
     grid-template-columns: 240px 1fr;
@@ -1264,7 +1666,7 @@ body {
     width: fit-content;
 }
 
-/* Keywords section */
+/* Keywords section / 关键词区域 */
 .collection-detail .keywords-section {
     display: flex;
     flex-wrap: wrap;
@@ -1301,7 +1703,10 @@ body {
     border-color: var(--secondary-color);
 }
 
-/* Description */
+/* 
+ * Description
+ * 描述
+ */
 .collection-detail .desc {
     color: var(--text-primary);
     line-height: 1.7;
@@ -1309,7 +1714,10 @@ body {
     text-indent: 2em;
 }
 
-/* Info grid for metadata */
+/* 
+ * Info grid for metadata
+ * 元数据信息网格
+ */
 .collection-detail .info-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1377,7 +1785,10 @@ body {
     text-decoration: underline;
 }
 
-/* Providers section */
+/* 
+ * Providers section
+ * 提供者区域
+ */
 .collection-detail .providers-section {
     display: flex;
     flex-wrap: wrap;
@@ -1405,7 +1816,10 @@ body {
     font-size: 0.8rem;
 }
 
-/* Action buttons */
+/* 
+ * Action buttons
+ * 操作按钮
+ */
 .collection-detail .actions {
     display: flex;
     justify-content: space-between;
@@ -1536,7 +1950,7 @@ body {
     margin-top: 0.6rem;
 }
 
-/* Visually hidden class for screen readers */
+/* Visually hidden class for screen readers / 屏幕阅读器的视觉隐藏类 */
 .visually-hidden {
     position: absolute;
     width: 1px;
@@ -1549,7 +1963,10 @@ body {
     border: 0;
 }
 
-/* Focus styles for accessibility */
+/* 
+ * Focus styles for accessibility
+ * 无障碍焦点样式
+ */
 .close:focus,
 .tool-btn:focus,
 .nav-btn:focus,
@@ -1562,7 +1979,10 @@ body {
     outline-offset: 2px;
 }
 
-/* Close button as button element */
+/* 
+ * Close button as button element
+ * 关闭按钮作为按钮元素
+ */
 .close {
     position: absolute;
     top: 1rem;
@@ -1579,4 +1999,102 @@ body {
 
 .close:hover {
     color: #2c3e50;
+}
+
+/* 
+ * Dark theme specific overrides
+ * 深色主题特定覆盖
+ */
+[data-theme="dark"] .modal-content {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .modal-content h2 {
+    color: var(--text-primary);
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .close {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .close:hover {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .detail-section h3 {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .detail-section pre {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .asset-detail {
+    background: var(--bg-secondary);
+}
+
+[data-theme="dark"] .asset-detail h4 {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .download-dialog {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .asset-row {
+    background: var(--bg-secondary);
+}
+
+[data-theme="dark"] .asset-name {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .filename-hint {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .loading {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .error {
+    background: rgba(200, 50, 50, 0.2);
+    color: #ff6b6b;
+}
+
+
+/* Scale Bar / 比例尺 */
+.map-scale-bar {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+}
+
+.map-scale-bar .scale-line {
+    height: 5px;
+    background: var(--primary-color);
+    border-radius: 2px;
+    min-width: 60px;
+    transition: width 0.2s ease;
+}
+
+.map-scale-bar .scale-text {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
 }

@@ -9,23 +9,42 @@
 </head>
 <body>
     <div id="app">
-        <!-- Header Section -->
+        <!-- Header Section / 头部区域 -->
         <header class="header">
             <h1>STAC Items Search Viewer</h1>
             <div class="header-subline">
                 <p>Search and visualize STAC items</p>
-                <a class="author-link" href="https://github.com/Junhao2314" target="_blank" rel="noopener noreferrer" title="Liu Junhao on GitHub">
+                <div class="header-right">
+                    <a class="author-link" href="https://github.com/Junhao2314" target="_blank" rel="noopener noreferrer" title="Liu Junhao on GitHub">
                     <svg class="gh-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor">
                         <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0016 8c0-4.42-3.58-8-8-8z"/>
                     </svg>
                     <span>by Liu Junhao</span>
                 </a>
+                    <button id="theme-toggle" class="theme-toggle-btn" type="button" title="Toggle dark/light theme" aria-label="Toggle dark/light theme">
+                        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                        </svg>
+                        <span class="theme-label">Theme</span>
+                    </button>
+                </div>
             </div>
         </header>
 
-        <!-- Main Container -->
+        <!-- Main Container / 主容器 -->
         <div class="main-container">
-            <!-- Left Panel - Search Controls -->
+            <!-- Left Panel - Search Controls / 左侧面板 - 搜索控件 -->
             <aside class="search-panel">
                 <h2>Search Parameters</h2>
                 
@@ -130,10 +149,10 @@
                 <button id="search-btn" class="primary-btn" aria-label="Apply search parameters and find STAC items">Apply Search</button>
             </aside>
 
-            <!-- Center - Map View -->
+            <!-- Center - Map View / 中间 - 地图视图 -->
             <main class="map-container">
                 <div id="map"></div>
-                <!-- Drawing Tools Toolbar -->
+                <!-- Drawing Tools Toolbar / 绘制工具栏 -->
                 <div class="map-toolbar drawing-tools" role="toolbar" aria-label="Drawing tools">
                     <button id="toggle-drawing-tools" class="tool-btn" title="Toggle Drawing Tools" aria-label="Toggle drawing tools" aria-expanded="true">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
@@ -159,42 +178,46 @@
                     </div>
                 </div>
                 
-                <!-- Navigation Controls -->
+                <!-- Navigation Controls / 导航控件 -->
                 <div class="map-controls" role="group" aria-label="Map navigation">
-                    <button id="zoom-in" class="nav-btn" title="Zoom In" aria-label="Zoom in">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="8" x2="12" y2="16"></line>
-                            <line x1="8" y1="12" x2="16" y2="12"></line>
-                        </svg>
-                    </button>
-                    <button id="zoom-out" class="nav-btn" title="Zoom Out" aria-label="Zoom out">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="8" y1="12" x2="16" y2="12"></line>
-                        </svg>
-                    </button>
-                    <button id="reset-view" class="nav-btn" title="Home" aria-label="Reset map view to home">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                        </svg>
-                    </button>
+                    <div class="nav-group">
+                        <button id="zoom-in" class="nav-btn" title="Zoom In" aria-label="Zoom in">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </button>
+                        <hr class="nav-divider" aria-hidden="true">
+                        <button id="zoom-out" class="nav-btn" title="Zoom Out" aria-label="Zoom out">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="nav-group">
+                        <button id="reset-view" class="nav-btn" title="Home" aria-label="Reset map view to home">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Basemap Switcher -->
+                <!-- Basemap Switcher / 底图切换器 -->
                 <div class="map-basemap">
                     <label for="basemap-select" class="visually-hidden">Select basemap</label>
                     <select id="basemap-select" title="Basemap selection" aria-label="Select basemap">
                         <option value="osm">OpenStreetMap</option>
-<option value="esri_img">Esri World Imagery (EN labels)</option>
+                        <option value="esri_img">Esri World Imagery (EN labels)</option>
+                        <option value="google_sat">Google Satellite</option>
                         <option value="google_hyb">Google Hybrid</option>
                         <option value="google_road">Google Road</option>
                     </select>
                 </div>
             </main>
 
-            <!-- Right Panel - Results -->
+            <!-- Right Panel - Results / 右侧面板 - 结果 -->
             <aside class="results-panel" aria-label="Search results">
                 <h2>Search Results</h2>
                 <div id="results-count" aria-live="polite"></div>
@@ -202,7 +225,7 @@
             </aside>
         </div>
 
-        <!-- Item Detail Modal -->
+        <!-- Item Detail Modal / 项目详情弹窗 -->
         <div id="item-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="item-modal-title">
             <div class="modal-content">
                 <button class="close" type="button" aria-label="Close dialog">&times;</button>
@@ -211,7 +234,7 @@
             </div>
         </div>
 
-        <!-- Collection Picker Modal -->
+        <!-- Collection Picker Modal / 集合选择器弹窗 -->
         <div id="collection-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="collection-modal-title">
             <div class="modal-content">
                 <button class="close" type="button" aria-label="Close dialog">&times;</button>
