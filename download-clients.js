@@ -1,24 +1,25 @@
 /**
- * Download Clients for STAC assets
- * - DefaultHttpClient: downloads via HTTP(S)
- * - PlanetaryComputerClient: signs Azure Blob URLs via MPC SAS API then downloads
- * - S3Client: attempts to download s3:// assets via HTTPS mapping (best-effort) and optional requester-pays header
+ * @fileoverview Download Clients for STAC assets
+ * STAC 资源下载客户端
+ * 
+ * - DefaultHttpClient: downloads via HTTP(S) / 通过 HTTP(S) 下载
+ * - PlanetaryComputerClient: signs Azure Blob URLs via MPC SAS API then downloads / 通过 MPC SAS API 签名 Azure Blob URL 后下载
+ * - S3Client: attempts to download s3:// assets via HTTPS mapping (best-effort) and optional requester-pays header / 尝试通过 HTTPS 映射下载 s3:// 资源（尽力而为）并支持可选的请求者付费头
  */
 
-const PC_SIGN_ENDPOINT = 'https://planetarycomputer.microsoft.com/api/sas/v1/sign?href=';
+/** @typedef {import('./types.js').STACItem} STACItem */
+/** @typedef {import('./types.js').STACAsset} STACAsset */
+/** @typedef {import('./types.js').DownloadSelection} DownloadSelection */
+/** @typedef {import('./types.js').DownloadProgress} DownloadProgress */
+/** @typedef {import('./types.js').DownloadOptions} DownloadOptions */
 
-// Pull configuration from environment or window globals
+import { DOWNLOAD_CONFIG } from './config.js';
+
+const PC_SIGN_ENDPOINT = DOWNLOAD_CONFIG.pcSignEndpoint;
+
 const CONFIG = {
-  pcSubscriptionKey:
-    (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_PC_SUBSCRIPTION_KEY) ||
-    (typeof window !== 'undefined' && window.PC_SUBSCRIPTION_KEY) ||
-    '',
-  s3RequesterPays:
-    ((typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_S3_REQUESTER_PAYS) ||
-      (typeof window !== 'undefined' && window.S3_REQUESTER_PAYS) ||
-      'false')
-      .toString()
-      .toLowerCase() === 'true'
+  pcSubscriptionKey: DOWNLOAD_CONFIG.pcSubscriptionKey,
+  s3RequesterPays: DOWNLOAD_CONFIG.s3RequesterPays,
 };
 
 function deriveFilenameFromUrl(url) {
@@ -32,9 +33,17 @@ function deriveFilenameFromUrl(url) {
   }
 }
 
+/**
+ * Derive filename from asset
+ * 从资源对象推导文件名
+ * 
+ * @param {STACAsset} asset - STAC asset / STAC 资源
+ * @returns {string} Derived filename / 推导出的文件名
+ */
 export function deriveFilenameFromAsset(asset) {
   if (!asset) return 'download';
   // Use the tail of the URL path as the filename, ignoring title per requirement
+  // 使用 URL 路径的末尾作为文件名，按要求忽略 title
   if (asset.href) return sanitizeFilename(deriveFilenameFromUrl(asset.href));
   return 'download';
 }
@@ -124,14 +133,29 @@ class PlanetaryComputerClient {
   }
 }
 
-// Exported helper to sign Planetary Computer URLs for use in UI (e.g., thumbnails)
+/**
+ * Sign Planetary Computer URL for use in UI (e.g., thumbnails)
+ * 为 UI 使用签名 Planetary Computer URL（如缩略图）
+ * 
+ * Returns the original URL if signing fails, to allow graceful degradation
+ * 签名失败时返回原始 URL，以实现优雅降级
+ * 
+ * @param {string} url - URL to sign / 要签名的 URL
+ * @returns {Promise<string>} Signed URL / 签名后的 URL
+ */
 export async function signPlanetaryComputerUrl(url) {
-  return PlanetaryComputerClient.signUrl(url);
+  try {
+    return await PlanetaryComputerClient.signUrl(url);
+  } catch (e) {
+    console.warn('Failed to sign Planetary Computer URL:', url, e);
+    throw e; // Re-throw so callers can handle appropriately
+  }
 }
 
 class S3Client {
   static parseS3(s3url) {
     // s3://bucket/key -> {bucket, key}
+    // 解析 S3 URL 为 bucket 和 key
     const m = /^s3:\/\/([^\/]+)\/(.+)$/.exec(s3url);
     if (!m) return null;
     return { bucket: m[1], key: m[2] };
@@ -139,6 +163,7 @@ class S3Client {
 
   static toHttps({ bucket, key }) {
     // Virtual-hosted–style URL
+    // 虚拟主机风格的 URL
     return `https://${bucket}.s3.amazonaws.com/${encodeURI(key)}`;
   }
 
@@ -181,11 +206,19 @@ function pickDownloadClient(asset, provider) {
   return { type: 'http' };
 }
 
+/**
+ * Choose primary downloadable assets from item
+ * 从 item 中选择主要可下载资源
+ * 
+ * @param {STACItem} item - STAC item / STAC 项目
+ * @returns {{key: string, asset: STACAsset}[]} Array of asset selections / 资源选择数组
+ */
 export function choosePrimaryAssets(item) {
   const assets = item?.assets || {};
   const keys = Object.keys(assets);
   if (!keys.length) return [];
   // Prefer assets where roles include 'data'
+  // 优先选择 roles 包含 'data' 的资源
   const dataKeys = keys.filter(k => {
     const roles = assets[k].roles;
     if (!roles) return false;
@@ -195,10 +228,17 @@ export function choosePrimaryAssets(item) {
   });
   let chosen = dataKeys.length ? dataKeys : keys;
   // Exclude obvious non-data assets
+  // 排除明显的非数据资源
   chosen = chosen.filter(k => !['thumbnail', 'rendered_preview', 'preview'].includes(k));
   return chosen.map(k => ({ key: k, asset: assets[k] }));
 }
 
+/**
+ * Download item data (all primary assets)
+ * 下载项目数据（所有主要资源）
+ * 
+ * @param {STACItem} item - STAC item to download / 要下载的 STAC 项目
+ */
 export async function downloadItemData(item) {
   if (!item) return;
   const providerSel = document.getElementById('provider');
@@ -265,6 +305,14 @@ async function resolveFinalUrl(asset, provider) {
   return href;
 }
 
+/**
+ * Download multiple assets with progress tracking
+ * 下载多个资源并跟踪进度
+ * 
+ * @param {DownloadSelection[]} selections - Assets to download / 要下载的资源
+ * @param {DownloadOptions} [options] - Download options / 下载选项
+ * @throws {DOMException} If aborted / 如果被中止
+ */
 export async function downloadAssets(selections, { provider, directoryHandle, onProgress, abortSignal } = {}) {
   let aborted = false;
   for (const sel of selections) {
@@ -286,6 +334,7 @@ export async function downloadAssets(selections, { provider, directoryHandle, on
         }
       } else {
         // Fallback: still stream to memory for progress if possible, then save
+        // 回退：如果可能，仍然流式传输到内存以获取进度，然后保存
         const resp = await fetch(finalUrl, { method: 'GET', signal: abortSignal });
         if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
         const chunks = [];

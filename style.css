@@ -201,61 +201,68 @@ body {
     gap: 0.25rem;
 }
 
-.date-range input[type="date"] {
+/* Hybrid date input wrapper */
+.date-input-wrapper {
+    position: relative;
     flex: 1 1 45%;
     min-width: 0;
-    padding: 0.5rem 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.date-input-wrapper .date-display {
+    width: 100%;
+    padding: 0.5rem 2rem 0.5rem 0.5rem;
     font-size: 0.85rem;
     line-height: 1.2;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* Optimize date input appearance */
-.date-range input[type="date"]::-webkit-datetime-edit {
-    padding: 0;
+.date-input-wrapper .date-display:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
 }
 
-.date-range input[type="date"]::-webkit-datetime-edit-fields-wrapper {
-    padding: 0;
+.date-input-wrapper .date-native {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
 }
 
-.date-range input[type="date"]::-webkit-datetime-edit-text {
-    padding: 0 0.2rem;
+.date-input-wrapper .date-picker-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: color 0.2s, background 0.2s;
 }
 
-.date-range input[type="date"]::-webkit-datetime-edit-month-field,
-.date-range input[type="date"]::-webkit-datetime-edit-day-field,
-.date-range input[type="date"]::-webkit-datetime-edit-year-field {
-    padding: 0;
+.date-input-wrapper .date-picker-btn:hover {
+    color: var(--primary-color);
+    background: var(--bg-tertiary);
 }
 
-.date-range input[type="date"]::-webkit-inner-spin-button,
-.date-range input[type="date"]::-webkit-calendar-picker-indicator {
-    padding: 0;
-    margin: 0;
+.date-input-wrapper .date-picker-btn svg {
     width: 16px;
     height: 16px;
-    cursor: pointer;
-    opacity: 0.6;
-}
-
-.date-range input[type="date"]::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
-}
-
-/* Force English format display */
-.date-range input[type="date"]:lang(en-US)::-webkit-datetime-edit {
-    font-family: 'Inter', -apple-system, sans-serif;
-}
-
-/* Placeholder text for empty date inputs */
-.date-range input[type="date"]:not(:valid):before {
-    content: attr(placeholder);
-    color: var(--text-muted);
-}
-
-.date-range input[type="date"]:focus {
-    outline: none;
 }
 
 .date-separator {
@@ -763,20 +770,6 @@ body {
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
     border-bottom: 2px solid #e9ecef;
-}
-
-.close {
-    position: absolute;
-    top: 1rem;
-    right: 1.5rem;
-    font-size: 2rem;
-    color: #7b8a9a;
-    cursor: pointer;
-    transition: color 0.2s;
-}
-
-.close:hover {
-    color: #2c3e50;
 }
 
 /* Item Details */
@@ -1464,6 +1457,12 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
+.collection-card:focus {
+    outline: 2px solid var(--secondary-color);
+    outline-offset: 2px;
+    background: var(--bg-primary);
+}
+
 .collection-card .thumb {
     width: 110px;
     height: 80px;
@@ -1535,4 +1534,49 @@ body {
 
 .collection-pagination {
     margin-top: 0.6rem;
+}
+
+/* Visually hidden class for screen readers */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Focus styles for accessibility */
+.close:focus,
+.tool-btn:focus,
+.nav-btn:focus,
+.primary-btn:focus,
+.secondary-btn:focus,
+.pager-btn:focus,
+.asset-pill:focus,
+.result-item:focus {
+    outline: 2px solid var(--secondary-color);
+    outline-offset: 2px;
+}
+
+/* Close button as button element */
+.close {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    font-size: 2rem;
+    color: #7b8a9a;
+    cursor: pointer;
+    transition: color 0.2s;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
+}
+
+.close:hover {
+    color: #2c3e50;
 }
