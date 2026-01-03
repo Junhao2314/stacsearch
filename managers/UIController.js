@@ -66,21 +66,74 @@ export class UIController {
             // Manual input formatting (YYYY-MM-DD)
             // 手动输入格式化（YYYY-MM-DD）
             displayInput.addEventListener('input', (e) => {
-                let value = e.target.value.replace(/[^0-9]/g, '');
-                if (value.length >= 4) value = value.substring(0, 4) + '-' + value.substring(4);
-                if (value.length >= 7) value = value.substring(0, 7) + '-' + value.substring(7, 9);
-                e.target.value = value.substring(0, 10);
+                const input = e.target;
+                const cursorPos = input.selectionStart;
+                const oldValue = input.value;
                 
-                // Sync to native input if valid date
-                // 如果是有效日期则同步到原生输入
-                if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) {
-                    nativeInput.value = e.target.value;
-                    this._validateDateRange();
+                // Only format when adding characters, not when editing in the middle
+                // 仅在添加字符时格式化，编辑中间位置时不强制格式化
+                let value = oldValue.replace(/[^0-9-]/g, '');
+                
+                // Normalize multiple dashes and limit format
+                // 规范化多个破折号并限制格式
+                value = value.replace(/--+/g, '-');
+                
+                // Only auto-insert dashes when typing at the end
+                // 仅在末尾输入时自动插入破折号
+                const isTypingAtEnd = cursorPos === oldValue.length;
+                
+                if (isTypingAtEnd) {
+                    // Remove all dashes for reformatting when typing at end
+                    // 在末尾输入时移除所有破折号重新格式化
+                    let digits = value.replace(/-/g, '');
+                    // Limit to 8 digits (YYYYMMDD)
+                    // 限制为8位数字（YYYYMMDD）
+                    digits = digits.substring(0, 8);
+                    if (digits.length >= 4) digits = digits.substring(0, 4) + '-' + digits.substring(4);
+                    if (digits.length >= 7) digits = digits.substring(0, 7) + '-' + digits.substring(7);
+                    value = digits;
+                } else {
+                    // When editing in the middle, limit total digits to 8
+                    // 在中间编辑时，限制总数字为8位
+                    const digits = value.replace(/-/g, '');
+                    if (digits.length > 8) {
+                        // Rebuild with only first 8 digits, preserving dash positions
+                        // 只保留前8位数字，保持破折号位置
+                        let rebuiltDigits = digits.substring(0, 8);
+                        if (rebuiltDigits.length >= 4) rebuiltDigits = rebuiltDigits.substring(0, 4) + '-' + rebuiltDigits.substring(4);
+                        if (rebuiltDigits.length >= 7) rebuiltDigits = rebuiltDigits.substring(0, 7) + '-' + rebuiltDigits.substring(7);
+                        value = rebuiltDigits;
+                    } else {
+                        value = value.substring(0, 10);
+                    }
+                }
+                
+                input.value = value;
+                
+                // Restore cursor position when editing in the middle
+                // 在中间编辑时恢复光标位置
+                if (!isTypingAtEnd && cursorPos <= value.length) {
+                    input.setSelectionRange(cursorPos, cursorPos);
+                }
+                
+                // Clear error immediately when user corrects to valid date (UX best practice)
+                // 当用户修正为有效日期时立即清除错误（UX最佳实践）
+                if (/^\d{4}-\d{2}-\d{2}$/.test(input.value)) {
+                    const [y, m, d] = input.value.split('-').map(Number);
+                    const date = new Date(y, m - 1, d);
+                    const isValid = date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+                    if (isValid) {
+                        input.classList.remove('date-error');
+                        input.removeAttribute('title');
+                        nativeInput.value = input.value;
+                        this._validateDateRange();
+                    }
                 }
             });
 
             // Validate on blur / 失焦时验证
             displayInput.addEventListener('blur', () => {
+                this._validateSingleDate(displayInput, nativeInput);
                 this._validateDateRange();
             });
 
@@ -89,6 +142,8 @@ export class UIController {
             nativeInput.addEventListener('change', () => {
                 if (nativeInput.value) {
                     displayInput.value = nativeInput.value;
+                    displayInput.classList.remove('date-error');
+                    displayInput.removeAttribute('title');
                     this._validateDateRange();
                 }
             });
@@ -104,6 +159,46 @@ export class UIController {
         });
 
         this._setDefaultDates();
+    }
+
+    /**
+     * Validate a single date input for valid date
+     * 验证单个日期输入是否为有效日期
+     * 
+     * @param {HTMLInputElement} displayInput - Display input element
+     * @param {HTMLInputElement} nativeInput - Native date input element
+     * @private
+     */
+    _validateSingleDate(displayInput, nativeInput) {
+        if (!displayInput) return;
+        
+        const value = displayInput.value;
+        
+        // Skip validation if empty or incomplete format
+        // 如果为空或格式不完整则跳过验证
+        if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            displayInput.classList.remove('date-error');
+            displayInput.removeAttribute('title');
+            return;
+        }
+        
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        
+        // Check if the date is valid by comparing components
+        // 通过比较各部分检查日期是否有效
+        const isValid = date.getFullYear() === year &&
+                        date.getMonth() === month - 1 &&
+                        date.getDate() === day;
+        
+        if (!isValid) {
+            displayInput.classList.add('date-error');
+            displayInput.setAttribute('title', 'Invalid date');
+        } else {
+            displayInput.classList.remove('date-error');
+            displayInput.removeAttribute('title');
+            if (nativeInput) nativeInput.value = value;
+        }
     }
 
     /**
@@ -123,11 +218,21 @@ export class UIController {
         const fromVal = fromDisplay.value;
         const toVal = toDisplay.value;
 
-        // Only validate if both are valid dates
-        // 仅在两个都是有效日期时验证
+        // Only validate if both are valid date format
+        // 仅在两个都是有效日期格式时验证
         if (!/^\d{4}-\d{2}-\d{2}$/.test(fromVal) || !/^\d{4}-\d{2}-\d{2}$/.test(toVal)) {
-            fromDisplay.classList.remove('date-error');
-            toDisplay.classList.remove('date-error');
+            return;
+        }
+
+        // Check if dates are actually valid (not like 2026-13-03)
+        // 检查日期是否真正有效（不是像 2026-13-03 这样的）
+        const isValidDate = (str) => {
+            const [y, m, d] = str.split('-').map(Number);
+            const date = new Date(y, m - 1, d);
+            return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+        };
+
+        if (!isValidDate(fromVal) || !isValidDate(toVal)) {
             return;
         }
 
@@ -623,16 +728,153 @@ export class UIController {
         }
 
         if (item.properties && Object.keys(item.properties).length > 0) {
+            const sortedKeys = Object.keys(item.properties).sort();
+            
+            // Helper to format values smartly
+            // 智能格式化值的辅助函数
+            const formatValue = (val) => {
+                if (val === null) return '<span class="prop-null">null</span>';
+                if (typeof val === 'boolean') return `<span class="prop-bool">${val}</span>`;
+                if (typeof val === 'number') return `<span class="prop-number">${val}</span>`;
+                
+                if (Array.isArray(val)) {
+                    if (val.length === 0) return '<span class="prop-empty">[]</span>';
+                    // Check if string array (tags)
+                    // 检查是否为字符串数组（标签）
+                    if (val.every(v => typeof v === 'string')) {
+                        return `<div class="prop-tags">${val.map(v => `<span class="prop-tag">${escapeHtml(v)}</span>`).join('')}</div>`;
+                    }
+                    // Check if number array (coords, etc) - compact display
+                    // 检查是否为数字数组（坐标等）- 紧凑显示
+                    if (val.every(v => typeof v === 'number')) {
+                        return `<span class="prop-array-num">[ ${val.join(', ')} ]</span>`;
+                    }
+                    // Mixed or objects in array - render as list of blocks
+                    // 混合类型或对象数组 - 渲染为块列表
+                    return `<div class="prop-array-complex">${val.map(v => `<div class="array-item">${formatValue(v)}</div>`).join('')}</div>`;
+                }
+                
+                if (typeof val === 'object') {
+                    if (Object.keys(val).length === 0) return '<span class="prop-empty">{}</span>';
+                    // Render nested object as a mini-table
+                    // 将嵌套对象渲染为迷你表格
+                    const nestedRows = Object.entries(val).map(([k, v]) => `
+                        <div class="nested-row">
+                            <span class="nested-key">${escapeHtml(k)}</span>
+                            <span class="nested-val">${formatValue(v)}</span>
+                        </div>
+                    `).join('');
+                    return `<div class="nested-object">${nestedRows}</div>`;
+                }
+                
+                // Check if string looks like a URL
+                // 检查字符串是否为 URL
+                if (typeof val === 'string') {
+                    if (val.startsWith('http://') || val.startsWith('https://')) {
+                        return `<a href="${escapeHtml(val)}" target="_blank" rel="noopener noreferrer" class="prop-link">${escapeHtml(val)}</a>`;
+                    }
+                    return `<span class="prop-value-text">${escapeHtml(val)}</span>`;
+                }
+                return `<span class="prop-value-text">${escapeHtml(String(val))}</span>`;
+            };
+
+            let propertiesList = '';
+            for (const key of sortedKeys) {
+                propertiesList += `
+                    <div class="prop-row">
+                        <span class="prop-key" title="${escapeHtml(key)}">${escapeHtml(key)}</span>
+                        <div class="prop-val">${formatValue(item.properties[key])}</div>
+                    </div>`;
+            }
+
+            const rawJson = escapeHtml(JSON.stringify(item.properties, null, 2));
+
             detailsHTML += `
-                <div class="detail-section">
-                    <h3>All Properties (raw)</h3>
-                    <pre>${escapeHtml(JSON.stringify(item.properties, null, 2))}</pre>
+                <div class="detail-section" id="properties-section">
+                    <div class="section-header-row">
+                        <h3>Properties</h3>
+                        <div class="props-toolbar">
+                            <div class="view-switcher">
+                                <button class="action-btn-sm active" data-view="list" title="List View">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                                </button>
+                                <button class="action-btn-sm" data-view="grid" title="Grid/Card View">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                                </button>
+                                <button class="action-btn-sm" data-view="json" title="JSON View">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                                </button>
+                            </div>
+                            <div class="v-divider"></div>
+                            <button class="action-btn-sm" id="copy-properties-btn" title="Copy JSON">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2-2v1"></path></svg>
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="props-container" class="properties-container view-list">
+                        <div class="properties-grid">${propertiesList}</div>
+                        <pre class="properties-raw hidden">${rawJson}</pre>
+                    </div>
                 </div>
             `;
         }
 
         detailsDiv.innerHTML = detailsHTML;
         modal.classList.add('show');
+
+        // Logic for View Switcher and Copy Button
+        // 视图切换器和复制按钮逻辑
+        const propsSection = detailsDiv.querySelector('#properties-section');
+        if (propsSection) {
+            const container = propsSection.querySelector('#props-container');
+            const switcherBtns = propsSection.querySelectorAll('.view-switcher button');
+            const gridEl = propsSection.querySelector('.properties-grid');
+            const rawEl = propsSection.querySelector('.properties-raw');
+
+            switcherBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Update active button state
+                    // 更新激活按钮状态
+                    switcherBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    // Switch View
+                    // 切换视图
+                    const view = btn.getAttribute('data-view');
+                    container.className = `properties-container view-${view}`;
+
+                    if (view === 'json') {
+                        gridEl.classList.add('hidden');
+                        rawEl.classList.remove('hidden');
+                    } else {
+                        gridEl.classList.remove('hidden');
+                        rawEl.classList.add('hidden');
+                    }
+                });
+            });
+
+            // Copy Button Logic
+            // 复制按钮逻辑
+            const copyBtn = propsSection.querySelector('#copy-properties-btn');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', async () => {
+                    try {
+                        await navigator.clipboard.writeText(JSON.stringify(item.properties, null, 2));
+                        const originalHTML = copyBtn.innerHTML;
+                        copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!`;
+                        copyBtn.classList.add('success');
+                        setTimeout(() => {
+                            copyBtn.innerHTML = originalHTML;
+                            copyBtn.classList.remove('success');
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Failed to copy', err);
+                    }
+                });
+            }
+        }
 
         // Store the element that triggered the modal for focus restoration
         // 存储触发弹窗的元素以便恢复焦点

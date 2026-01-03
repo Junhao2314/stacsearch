@@ -423,6 +423,17 @@ body {
     height: 16px;
 }
 
+/* Date input error state / 日期输入错误状态 */
+.date-input-wrapper .date-display.date-error {
+    border-color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.05);
+}
+
+.date-input-wrapper .date-display.date-error:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
+}
+
 .date-separator {
     color: var(--text-muted);
     font-size: 0.75rem;
@@ -989,7 +1000,7 @@ body {
  * 活动结果项高亮
  */
 .result-item.active {
-    background: #ffffff;
+    background: var(--bg-primary);
     border-color: #ffc107;
     box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.45), var(--shadow-md);
 }
@@ -1339,7 +1350,7 @@ body {
 }
 
 .detail-grid .value {
-    color: #2c3e50;
+    color: var(--text-primary);
     overflow-wrap: anywhere;
     word-break: break-word;
     max-width: 100%;
@@ -1608,8 +1619,6 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    max-height: 70vh;
-    overflow-y: auto;
     padding-right: 0.5rem;
 }
 
@@ -1799,7 +1808,7 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: white;
+    background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 0.5rem 0.75rem;
@@ -2097,4 +2106,438 @@ body {
     font-weight: 500;
     color: var(--text-secondary);
     white-space: nowrap;
+}
+
+/* 
+ * Properties Grid Styles
+ * 属性网格样式
+ */
+.section-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.section-header-row h3 {
+    margin-bottom: 0 !important;
+}
+
+.action-btn-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.action-btn-sm:hover {
+    background: var(--bg-tertiary);
+    color: var(--primary-color);
+    border-color: var(--secondary-color);
+}
+
+.action-btn-sm.success {
+    background: #c6f6d5;
+    color: #22543d;
+    border-color: #48bb78;
+}
+
+[data-theme="dark"] .action-btn-sm.success {
+    background: #276749;
+    color: #f0fff4;
+    border-color: #48bb78;
+}
+
+.properties-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+.prop-row {
+    display: grid;
+    /* Adaptive Key Width: at least 140px, max 30% of width */
+    /* 自适应键宽度：最小 140px，最大 30% 宽度 */
+    grid-template-columns: minmax(140px, 30%) 1fr;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.85rem;
+}
+
+.prop-row:last-child {
+    border-bottom: none;
+}
+
+.prop-key {
+    background: var(--bg-tertiary);
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-right: 1px solid var(--border-color);
+    
+    /* Allow wrapping for long keys */
+    /* 允许长键名换行 */
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: normal;
+    display: flex;
+    align-items: center;
+}
+
+.prop-val {
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow-x: auto;
+    display: flex;
+    align-items: center;
+    /* Ensure content doesn't overflow container */
+    /* 确保内容不会溢出容器 */
+    min-width: 0; 
+}
+
+/* Nested Object Styles */
+/* 嵌套对象样式 */
+.nested-object {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.nested-row {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.8rem;
+}
+
+.nested-row:last-child {
+    border-bottom: none;
+}
+
+.nested-key {
+    background: rgba(0,0,0,0.03);
+    padding: 0.3rem 0.6rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-right: 1px solid var(--border-color);
+    min-width: 100px;
+    max-width: 150px;
+    overflow-wrap: break-word;
+    display: flex;
+    align-items: center;
+}
+
+.nested-val {
+    padding: 0.3rem 0.6rem;
+    flex: 1;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    background: var(--bg-primary);
+}
+
+.prop-array-complex {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+}
+.array-item {
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 2px;
+}
+.array-item:last-child {
+    border-bottom: none;
+}
+
+.prop-value-json {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    background: transparent;
+    padding: 0;
+    border: none;
+    color: var(--text-primary);
+}
+
+.prop-value-text {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Responsive adjustment for properties grid */
+/* 属性网格的响应式调整 */
+@media (max-width: 600px) {
+    .prop-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .prop-key {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .prop-val {
+        padding: 0.5rem 0.75rem;
+    }
+}
+
+/* 
+ * View Switcher & Toolbar 
+ * 视图切换器和工具栏
+ */
+.props-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.view-switcher {
+    display: flex;
+    gap: 0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.view-switcher .action-btn-sm {
+    border: none;
+    background: transparent;
+    padding: 0.25rem 0.5rem;
+    border-radius: 2px;
+    color: var(--text-muted);
+}
+
+.view-switcher .action-btn-sm:hover {
+    color: var(--primary-color);
+    background: var(--bg-tertiary);
+}
+
+.view-switcher .action-btn-sm.active {
+    background: #fff;
+    color: var(--primary-color);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.v-divider {
+    width: 1px;
+    height: 16px;
+    background: var(--border-color);
+    margin: 0 0.2rem;
+}
+
+/* 
+ * Formatted Value Styles 
+ * 格式化值样式
+ */
+.prop-null {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+.prop-bool {
+    color: #d53f8c; /* Pinkish for booleans / 布尔值用粉色 */
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.prop-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.prop-tag {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.prop-array-num {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: rgba(0,0,0,0.02);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    word-break: break-all;
+}
+
+.prop-value-json.compact {
+    margin: 0;
+    padding: 0.4rem;
+    background: rgba(0,0,0,0.02);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.prop-link {
+    color: var(--secondary-color);
+    text-decoration: none;
+    word-break: break-all;
+}
+.prop-link:hover {
+    text-decoration: underline;
+}
+
+/* 
+ * View Modes 
+ * 视图模式
+ */
+.properties-raw {
+    background: var(--bg-secondary);
+    padding: 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+}
+
+/* GRID VIEW Override */
+/* 网格视图覆盖样式 */
+.view-grid .properties-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+    border: none;
+    background: transparent;
+    overflow: visible;
+}
+
+.view-grid .prop-row {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.view-grid .prop-key {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(0,0,0,0.02);
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.view-grid .prop-val {
+    padding: 0.6rem;
+    background: #fff;
+}
+
+/* Dark theme adjustments for new elements */
+/* 新元素的深色主题调整 */
+[data-theme="dark"] .view-switcher .action-btn-sm.active {
+    background: var(--bg-tertiary);
+    color: #fff;
+}
+[data-theme="dark"] .prop-array-num {
+    background: rgba(255,255,255,0.05);
+}
+[data-theme="dark"] .view-grid .prop-val {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+}
+
+/* 
+ * Dark Theme Refinements for New Elements
+ * 新元素的深色主题优化
+ */
+[data-theme="dark"] .nested-key {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .nested-object {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .prop-row {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .prop-key {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .prop-val {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Fix visibility of bounding box labels in dark mode if needed */
+/* 修复深色模式下边界框标签的可见性 */
+[data-theme="dark"] .detail-grid .label {
+    color: var(--text-muted);
+}
+
+/* 
+ * Custom Scrollbar (Webkit)
+ * 自定义滚动条
+ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+/* Dark theme scrollbar */
+/* 深色主题滚动条 */
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: #4a5568;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: #718096;
+}
+
+/* Firefox scrollbar support */
+/* Firefox 滚动条支持 */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 transparent;
+}
+
+[data-theme="dark"] * {
+    scrollbar-color: #4a5568 transparent;
 }
