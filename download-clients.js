@@ -14,6 +14,7 @@
 /** @typedef {import('./types.js').DownloadOptions} DownloadOptions */
 
 import { DOWNLOAD_CONFIG } from './config.js';
+import JSZip from 'jszip';
 
 const PC_SIGN_ENDPOINT = DOWNLOAD_CONFIG.pcSignEndpoint;
 
@@ -127,14 +128,31 @@ class DefaultHttpClient {
  * 带 URL 签名的 Planetary Computer 下载客户端
  */
 class PlanetaryComputerClient {
+  /** @type {number} Maximum retry attempts for rate limiting / 速率限制的最大重试次数 */
+  static MAX_RETRIES = 5;
+  /** @type {number} Base delay in ms for exponential backoff / 指数退避的基础延迟（毫秒） */
+  static BASE_DELAY = 1000;
+
   /**
-   * Sign URL using Planetary Computer SAS API
-   * 使用 Planetary Computer SAS API 签名 URL
+   * Sleep for specified milliseconds
+   * 休眠指定的毫秒数
+   * 
+   * @param {number} ms - Milliseconds to sleep / 休眠的毫秒数
+   * @returns {Promise<void>}
+   */
+  static sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Sign URL using Planetary Computer SAS API with retry logic
+   * 使用 Planetary Computer SAS API 签名 URL，带重试逻辑
    * 
    * @param {string} url - URL to sign / 要签名的 URL
+   * @param {number} [retryCount=0] - Current retry count / 当前重试次数
    * @returns {Promise<string>} Signed URL / 签名后的 URL
    */
-  static async signUrl(url) {
+  static async signUrl(url, retryCount = 0) {
     // If already appears signed with SAS, return as-is
     // 如果已经有 SAS 签名，直接返回
     try {
@@ -154,6 +172,24 @@ class PlanetaryComputerClient {
       method: 'GET',
       headers
     });
+
+    // Handle rate limiting with exponential backoff / 使用指数退避处理速率限制
+    if (resp.status === 429) {
+      if (retryCount >= PlanetaryComputerClient.MAX_RETRIES) {
+        throw new Error(`PC sign failed: Rate limit exceeded after ${retryCount} retries`);
+      }
+      
+      // Get retry-after header or use exponential backoff / 获取 retry-after 头或使用指数退避
+      const retryAfter = resp.headers.get('retry-after');
+      let delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : PlanetaryComputerClient.BASE_DELAY * Math.pow(2, retryCount);
+      // Add jitter to prevent thundering herd / 添加抖动以防止惊群效应
+      delay += Math.random() * 500;
+      
+      console.log(`PC sign rate limited, retrying in ${Math.round(delay)}ms (attempt ${retryCount + 1}/${PlanetaryComputerClient.MAX_RETRIES})`);
+      await PlanetaryComputerClient.sleep(delay);
+      return PlanetaryComputerClient.signUrl(url, retryCount + 1);
+    }
+
     if (!resp.ok) {
       throw new Error(`PC sign failed: ${resp.status} ${resp.statusText}`);
     }
@@ -481,4 +517,265 @@ export async function downloadAssets(selections, { provider, directoryHandle, on
     }
   }
   if (aborted) throw new DOMException('Aborted', 'AbortError');
+}
+
+// ============================================================================
+// ZIP Download Functions / ZIP 下载功能
+// ============================================================================
+
+/** @type {number} Warning threshold for ZIP download (500MB) / ZIP 下载的警告阈值（500MB） */
+const ZIP_WARN_SIZE = 500 * 1024 * 1024;
+
+/**
+ * @typedef {Object} ZipDownloadOptions
+
+ * @property {string} provider - STAC provider key / STAC 数据源键名
+ * @property {STACItem} item - STAC item for metadata / 用于元数据的 STAC 项目
+ * @property {function(string, DownloadProgress): void} [onProgress] - Progress callback / 进度回调
+ * @property {function(string): void} [onStatus] - Status message callback / 状态消息回调
+ * @property {AbortSignal} [abortSignal] - Abort signal / 中止信号
+ * @property {boolean} [skipSizeWarning] - Skip size warning confirmation / 跳过大小警告确认
+ */
+
+/**
+ * @typedef {Object} ZipDownloadResult
+ * @property {boolean} success - Whether download succeeded / 下载是否成功
+ * @property {string} [error] - Error message if failed / 失败时的错误消息
+ * @property {number} [totalSize] - Total size of downloaded files / 下载文件的总大小
+ * @property {number} [fileCount] - Number of files in ZIP / ZIP 中的文件数量
+ * @property {boolean} [needsConfirmation] - Whether user confirmation is needed / 是否需要用户确认
+ * @property {number} [estimatedSize] - Estimated total size / 估算的总大小
+ */
+
+/**
+ * Estimate total size of assets by fetching HEAD requests
+ * 通过 HEAD 请求估算资源的总大小
+ * 
+ * @param {DownloadSelection[]} selections - Assets to estimate / 要估算的资源
+ * @param {string} provider - STAC provider key / STAC 数据源键名
+ * @returns {Promise<{totalSize: number, sizes: Map<string, number>}>} Size info / 大小信息
+ */
+async function estimateAssetsSize(selections, provider) {
+  const sizes = new Map();
+  let totalSize = 0;
+
+  // Process sequentially instead of in parallel to avoid triggering
+  // Planetary Computer SAS API rate limits (HTTP 429) when many assets
+  // need signing at once.
+  // 顺序处理而不是并发处理，以避免在大量资源需要签名时触发
+  // Planetary Computer SAS API 的限流（HTTP 429）。
+  for (const sel of selections) {
+    try {
+      const finalUrl = await resolveFinalUrl(sel.asset, provider);
+      const resp = await fetch(finalUrl, { method: 'HEAD' });
+      if (resp.ok) {
+        const size = parseInt(resp.headers.get('content-length') || '0', 10) || 0;
+        sizes.set(sel.key, size);
+        totalSize += size;
+      }
+    } catch {
+      // Ignore errors, size will be 0 / 忽略错误，大小将为 0
+    }
+  }
+
+  return { totalSize, sizes };
+}
+
+/**
+ * Format bytes to human readable string
+ * 将字节格式化为人类可读的字符串
+ * 
+ * @param {number} bytes - Bytes to format / 要格式化的字节数
+ * @returns {string} Formatted string / 格式化后的字符串
+ */
+export function formatBytes(bytes) {
+  if (!isFinite(bytes) || bytes < 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0, v = bytes;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(v >= 10 ? 1 : 2)} ${units[i]}`;
+}
+
+/**
+ * Generate ZIP filename from item ID and timestamp
+ * 从 item ID 和时间戳生成 ZIP 文件名
+ * 
+ * @param {string} itemId - STAC item ID / STAC 项目 ID
+ * @returns {string} ZIP filename / ZIP 文件名
+ */
+export function generateZipFilename(itemId) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const safeId = sanitizeFilename(itemId).slice(0, 50);
+  return `${safeId}_${timestamp}.zip`;
+}
+
+/**
+ * Download assets and pack them into a ZIP file
+ * 下载资源并打包成 ZIP 文件
+ * 
+ * @param {DownloadSelection[]} selections - Assets to download / 要下载的资源
+ * @param {ZipDownloadOptions} options - Download options / 下载选项
+ * @returns {Promise<ZipDownloadResult>} Download result / 下载结果
+ */
+export async function downloadAssetsAsZip(selections, options) {
+  const { provider, item, onProgress, onStatus, abortSignal, skipSizeWarning } = options;
+
+  if (!selections.length) {
+    return { success: false, error: 'No assets selected' };
+  }
+
+  // Step 1: Estimate total size / 步骤 1：估算总大小
+  onStatus?.('Estimating file sizes...');
+  const { totalSize, sizes } = await estimateAssetsSize(selections, provider);
+
+  // Warn if size exceeds threshold (but don't block) / 如果大小超过阈值则警告（但不阻止）
+  if (!skipSizeWarning && totalSize > ZIP_WARN_SIZE) {
+    const sizeStr = formatBytes(totalSize);
+    return {
+      success: false,
+      needsConfirmation: true,
+      estimatedSize: totalSize,
+      error: `Estimated size is ${sizeStr}. Large files may take a while and use significant memory. Continue?`
+    };
+  }
+
+  // Step 2: Create ZIP and download files / 步骤 2：创建 ZIP 并下载文件
+  const zip = new JSZip();
+  let downloadedSize = 0;
+  let downloadedCount = 0;
+  const failedAssets = [];
+
+  // Add STAC Item metadata JSON / 添加 STAC Item 元数据 JSON
+  if (item) {
+    const itemJson = JSON.stringify(item, null, 2);
+    zip.file('metadata.json', itemJson);
+    onStatus?.('Added metadata.json to ZIP');
+  }
+
+  for (const sel of selections) {
+    if (abortSignal?.aborted) {
+      return { success: false, error: 'Download cancelled' };
+    }
+
+    onStatus?.(`Downloading: ${sel.filename}`);
+
+    try {
+      const finalUrl = await resolveFinalUrl(sel.asset, provider);
+      const resp = await fetch(finalUrl, { method: 'GET', signal: abortSignal });
+
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+      }
+
+      // Stream download with progress / 流式下载并显示进度
+      const contentLength = parseInt(resp.headers.get('content-length') || '0', 10) || sizes.get(sel.key) || 0;
+      const reader = resp.body?.getReader();
+      
+      if (reader) {
+        const chunks = [];
+        let loaded = 0;
+
+        while (true) {
+          if (abortSignal?.aborted) {
+            return { success: false, error: 'Download cancelled' };
+          }
+
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          chunks.push(value);
+          loaded += value.byteLength || 0;
+
+          if (onProgress) {
+            const percent = contentLength ? Math.round((loaded / contentLength) * 100) : null;
+            onProgress(sel.key, { loaded, total: contentLength, percent });
+          }
+        }
+
+        const blob = new Blob(chunks);
+        const arrayBuffer = await blob.arrayBuffer();
+        zip.file(sel.filename, arrayBuffer);
+        downloadedSize += loaded;
+      } else {
+        // Fallback for browsers without streaming / 不支持流式传输的浏览器回退
+        const blob = await resp.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        zip.file(sel.filename, arrayBuffer);
+        downloadedSize += blob.size;
+        
+        if (onProgress) {
+          onProgress(sel.key, { loaded: blob.size, total: blob.size, percent: 100 });
+        }
+      }
+
+      downloadedCount++;
+    } catch (e) {
+      if (abortSignal?.aborted) {
+        return { success: false, error: 'Download cancelled' };
+      }
+      console.error(`Failed to download ${sel.key}:`, e);
+      failedAssets.push({ key: sel.key, error: e.message });
+    }
+  }
+
+  if (downloadedCount === 0) {
+    return {
+      success: false,
+      error: `All downloads failed. ${failedAssets.map(f => `${f.key}: ${f.error}`).join('; ')}`
+    };
+  }
+
+  // Step 3: Generate ZIP file / 步骤 3：生成 ZIP 文件
+  onStatus?.('Generating ZIP file...');
+
+  try {
+    const zipBlob = await zip.generateAsync({
+      type: 'blob',
+      streamFiles: true,
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    }, (metadata) => {
+      // ZIP generation progress / ZIP 生成进度
+      if (onProgress) {
+        onProgress('__zip__', {
+          loaded: Math.round(metadata.percent),
+          total: 100,
+          percent: Math.round(metadata.percent)
+        });
+      }
+    });
+
+    // Step 4: Save ZIP file / 步骤 4：保存 ZIP 文件
+    const zipFilename = generateZipFilename(item?.id || 'stac-assets');
+    await saveBlob(zipBlob, zipFilename);
+
+    onStatus?.(`ZIP download complete: ${zipFilename}`);
+
+    // Report warnings for failed assets / 报告失败资源的警告
+    if (failedAssets.length > 0) {
+      console.warn('Some assets failed to download:', failedAssets);
+    }
+
+    return {
+      success: true,
+      totalSize: downloadedSize,
+      fileCount: downloadedCount,
+      ...(failedAssets.length > 0 && {
+        error: `${failedAssets.length} asset(s) failed: ${failedAssets.map(f => f.key).join(', ')}`
+      })
+    };
+  } catch (e) {
+    console.error('Failed to generate ZIP:', e);
+    return { success: false, error: `Failed to generate ZIP: ${e.message}` };
+  }
+}
+
+/**
+ * Get ZIP size warning threshold
+ * 获取 ZIP 大小警告阈值
+ * 
+ * @returns {number} Size threshold in bytes / 字节为单位的大小阈值
+ */
+export function getZipSizeLimit() {
+  return ZIP_WARN_SIZE;
 }

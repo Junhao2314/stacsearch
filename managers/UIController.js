@@ -15,7 +15,7 @@
 /** @typedef {import('./CollectionPicker.js').CollectionPicker} CollectionPicker */
 
 import { formatItemForDisplay, getItemThumbnail, resolveAssetHref } from '../stac-service.js';
-import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets } from '../download-clients.js';
+import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets, downloadAssetsAsZip, formatBytes } from '../download-clients.js';
 import { coalesce, escapeHtml, throttle } from './utils.js';
 
 export class UIController {
@@ -1036,14 +1036,23 @@ export class UIController {
                 </div>
             </div>
             <div class="asset-list" role="list" aria-label="Downloadable assets">${assetRows}</div>
+            <div id="zip-status" class="zip-status" aria-live="polite"></div>
+            <div class="zip-progress-row hidden" id="zip-progress-row">
+                <div class="progress-bar"><div class="bar" id="zip-progress-bar"></div></div>
+                <span class="progress-text" id="zip-progress-text">0%</span>
+            </div>
             <div class="dialog-actions">
-                <div>
-                    ${supportsDirPicker ? '<button class="download-btn" id="pick-folder">Select Folder</button>' : '<span style="color:#5a6c7d; font-size:0.85rem;">Folder selection not supported in this browser.</span>'}
+                <div class="action-row-left">
+                    ${supportsDirPicker ? '<button class="download-btn" id="pick-folder">Select Folder</button>' : '<span style="color:#5a6c7d; font-size:0.85rem;">Folder selection not supported.</span>'}
                 </div>
-                <div>
+                <div class="action-row-right">
+                    <button class="download-btn" id="download-zip" title="Download all selected assets as a single ZIP file">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        ZIP
+                    </button>
                     <button class="download-btn" id="start-download">Start</button>
                     <button class="download-btn" id="stop-download">Stop</button>
-                    <button class="download-btn" id="close-download">Close</button>
+                    <button class="download-btn secondary" id="close-download">Close</button>
                 </div>
             </div>
         `;
@@ -1051,19 +1060,20 @@ export class UIController {
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
 
-        this._setupDownloadDialogEvents(dialog, overlay, candidates, provider);
+        this._setupDownloadDialogEvents(dialog, overlay, candidates, provider, item);
     }
 
     /**
      * Setup download dialog events
      * 设置下载对话框事件
      */
-    _setupDownloadDialogEvents(dialog, overlay, candidates, provider) {
+    _setupDownloadDialogEvents(dialog, overlay, candidates, provider, item) {
         const dialogState = {
             directoryHandle: null,
             dlAbortController: null,
             progressState: new Map(),
-            eventCleanupFns: []
+            eventCleanupFns: [],
+            isDownloading: false
         };
 
         const addTrackedListener = (el, event, handler) => {
@@ -1079,6 +1089,48 @@ export class UIController {
             dialogState.eventCleanupFns.forEach(fn => { try { fn(); } catch {} });
             dialogState.eventCleanupFns.length = 0;
             if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        };
+
+        const setButtonsEnabled = (enabled) => {
+            const startBtn = dialog.querySelector('#start-download');
+            const zipBtn = dialog.querySelector('#download-zip');
+            const stopBtn = dialog.querySelector('#stop-download');
+            if (startBtn) startBtn.disabled = !enabled;
+            if (zipBtn) zipBtn.disabled = !enabled;
+            if (stopBtn) stopBtn.disabled = enabled;
+            dialogState.isDownloading = !enabled;
+        };
+
+        const getSelectedSelections = () => {
+            const selected = Array.from(dialog.querySelectorAll('.asset-check'))
+                .filter(c => c.checked)
+                .map(c => c.getAttribute('data-key'));
+            return candidates
+                .filter(c => selected.includes(c.key))
+                .map(c => ({ key: c.key, asset: c.asset, filename: deriveFilenameFromAsset(c.asset) }));
+        };
+
+        const updateZipStatus = (message, isError = false) => {
+            const statusEl = dialog.querySelector('#zip-status');
+            if (statusEl) {
+                statusEl.textContent = message;
+                statusEl.className = `zip-status ${isError ? 'error' : ''}`;
+            }
+        };
+
+        const updateZipProgress = (percent, show = true) => {
+            const progressRow = dialog.querySelector('#zip-progress-row');
+            const progressBar = dialog.querySelector('#zip-progress-bar');
+            const progressText = dialog.querySelector('#zip-progress-text');
+            if (progressRow) {
+                progressRow.classList.toggle('hidden', !show);
+            }
+            if (progressBar) {
+                progressBar.style.width = `${percent}%`;
+            }
+            if (progressText) {
+                progressText.textContent = `${Math.round(percent)}%`;
+            }
         };
 
         // Row selection / 行选择
@@ -1118,27 +1170,98 @@ export class UIController {
 
         const startBtn = dialog.querySelector('#start-download');
         const stopBtn = dialog.querySelector('#stop-download');
+        const zipBtn = dialog.querySelector('#download-zip');
         stopBtn.disabled = true;
 
-        addTrackedListener(startBtn, 'click', async () => {
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            dialogState.progressState.clear();
-            dialogState.dlAbortController = new AbortController();
-
-            const selected = Array.from(dialog.querySelectorAll('.asset-check'))
-                .filter(c => c.checked)
-                .map(c => c.getAttribute('data-key'));
-
-            if (!selected.length) {
+        // ZIP Download Handler / ZIP 下载处理
+        const doZipDownload = async (skipSizeWarning = false) => {
+            const selections = getSelectedSelections();
+            if (!selections.length) {
                 alert('Please select at least one asset.');
-                startBtn.disabled = false;
                 return;
             }
 
-            const selections = candidates
-                .filter(c => selected.includes(c.key))
-                .map(c => ({ key: c.key, asset: c.asset, filename: deriveFilenameFromAsset(c.asset) }));
+            setButtonsEnabled(false);
+            updateZipStatus('');
+            updateZipProgress(0, false);
+            dialogState.dlAbortController = new AbortController();
+
+            const onProgress = (assetKey, p) => {
+                if (assetKey === '__zip__') {
+                    // ZIP generation progress / ZIP 生成进度
+                    updateZipProgress(p.percent || 0, true);
+                } else {
+                    this._updateDownloadProgress(dialog, dialogState, assetKey, p);
+                }
+            };
+
+            const onStatus = (message) => {
+                updateZipStatus(message);
+            };
+
+            try {
+                const result = await downloadAssetsAsZip(selections, {
+                    provider,
+                    item,
+                    onProgress,
+                    onStatus,
+                    abortSignal: dialogState.dlAbortController.signal,
+                    skipSizeWarning
+                });
+
+                if (result.needsConfirmation) {
+                    // Large file warning - ask user to confirm / 大文件警告 - 请求用户确认
+                    setButtonsEnabled(true);
+                    const sizeStr = formatBytes(result.estimatedSize || 0);
+                    updateZipStatus(`Estimated size: ${sizeStr}`);
+                    if (confirm(`Estimated download size is ${sizeStr}.\nLarge files may take a while and use significant memory.\n\nContinue?`)) {
+                        await doZipDownload(true);
+                    }
+                    return;
+                }
+
+                if (result.success) {
+                    const sizeStr = formatBytes(result.totalSize || 0);
+                    updateZipStatus(`✓ ZIP downloaded: ${result.fileCount} files, ${sizeStr}`);
+                    updateZipProgress(100, true);
+                    if (result.error) {
+                        // Partial success with warnings / 部分成功，有警告
+                        alert(`ZIP download completed with warnings:\n${result.error}`);
+                    }
+                } else {
+                    updateZipStatus(`✗ ${result.error}`, true);
+                    updateZipProgress(0, false);
+                    if (result.error && !result.error.includes('cancelled')) {
+                        alert(result.error);
+                    }
+                }
+            } catch (e) {
+                if (e?.name === 'AbortError') {
+                    updateZipStatus('Download cancelled', true);
+                } else {
+                    updateZipStatus(`Error: ${e.message}`, true);
+                    console.error('ZIP download error:', e);
+                }
+            } finally {
+                setButtonsEnabled(true);
+                dialogState.dlAbortController = null;
+            }
+        };
+
+        addTrackedListener(zipBtn, 'click', () => doZipDownload(false));
+
+        // Individual Download Handler / 单独下载处理
+        addTrackedListener(startBtn, 'click', async () => {
+            const selections = getSelectedSelections();
+            if (!selections.length) {
+                alert('Please select at least one asset.');
+                return;
+            }
+
+            setButtonsEnabled(false);
+            updateZipStatus('');
+            dialogState.progressState.clear();
+            dialogState.dlAbortController = new AbortController();
 
             const onProgress = (assetKey, p) => this._updateDownloadProgress(dialog, dialogState, assetKey, p);
 
@@ -1149,15 +1272,15 @@ export class UIController {
                 if (e?.name === 'AbortError') alert('Downloads stopped.');
                 else alert('Download error. See console for details.');
             } finally {
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
+                setButtonsEnabled(true);
                 dialogState.dlAbortController = null;
             }
         });
 
         addTrackedListener(stopBtn, 'click', () => {
             try { dialogState.dlAbortController?.abort(); } catch {}
-            stopBtn.disabled = true;
+            // Ensure buttons are reset so user can start/zip again after stopping
+            setButtonsEnabled(true);
         });
     }
 

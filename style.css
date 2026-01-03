@@ -1460,6 +1460,66 @@ body {
     margin-top: 0.6rem;
     gap: 0.5rem;
 }
+.action-row-left,
+.action-row-right {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+#download-zip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    font-weight: 500;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+}
+#download-zip:hover:enabled {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+#download-zip:disabled {
+    background-color: var(--bg-tertiary);
+    color: var(--text-muted);
+    border-color: var(--border-color);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+#download-zip svg {
+    flex-shrink: 0;
+}
+.zip-status {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #5a6c7d);
+    min-height: 1.2em;
+    margin: 0.4rem 0;
+    padding: 0 0.2rem;
+}
+.zip-status.error {
+    color: var(--error-color, #e74c3c);
+}
+.zip-progress-row {
+    margin: 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.zip-progress-row.hidden {
+    display: none;
+}
+.zip-progress-row .progress-bar {
+    flex: 1;
+}
+.zip-progress-row .progress-text {
+    min-width: 3em;
+    text-align: right;
+}
 .progress-row {
     margin: 0.3rem 0;
 }
@@ -2064,6 +2124,18 @@ body {
 
 [data-theme="dark"] .filename-hint {
     color: var(--text-secondary);
+}
+
+[data-theme="dark"] .zip-status {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .zip-status.error {
+    color: #ff6b6b;
+}
+
+[data-theme="dark"] .progress-bar {
+    background: var(--bg-tertiary);
 }
 
 [data-theme="dark"] .loading {
