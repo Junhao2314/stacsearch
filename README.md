@@ -11,6 +11,8 @@ A web platform for searching and visualizing STAC (SpatioTemporal Asset Catalog)
 - 📍 **Draw on Map**: Draw bounding boxes directly on the map for spatial queries
 - 📊 **Detailed Information**: View comprehensive item details in a modal window
 - ⬇️ **Item Download**: Download item assets directly from Item Details (supports Planetary Computer signing and basic S3 handling)
+- 🛰️ **Sentinel-1 Full Product Download**: Download complete Sentinel-1 products as ZIP files from Copernicus Data Space (opens in new tab for browser-based authentication)
+- 🌐 **Multiple Data Providers**: Support for Microsoft Planetary Computer, AWS Earth Search, and Copernicus Data Space
 
 ## Getting Started
 
@@ -55,7 +57,7 @@ npm run preview
 
 ## Usage
 
-1. **Select a Provider**: Choose a STAC data provider from the dropdown (e.g., Microsoft Planetary Computer, AWS Earth Search)
+1. **Select a Provider**: Choose a STAC data provider from the dropdown (e.g., Microsoft Planetary Computer, AWS Earth Search, Copernicus Data Space)
 2. **Choose a Collection**: Click "Select Collection" to browse and select a satellite imagery collection
 3. **Set Date Range**: Specify the time period for your search
 4. **Define Area of Interest**: 
@@ -64,6 +66,24 @@ npm run preview
 5. **Search**: Click the "Search" button to find matching items
 6. **Browse Results**: View search results in the sidebar, hover to highlight on map
 7. **View Details**: Click on any result to see detailed information and download assets
+
+## Environment Variables
+
+For full functionality, you can configure the following environment variables. Create a `.env` file based on `.env.example`:
+
+### Copernicus Data Space (Sentinel-1 Full Product Download)
+
+Sentinel-1 full product downloads are handled by opening the Copernicus Data Space download page in a new browser tab. You will be prompted to log in with your Copernicus account if not already authenticated.
+
+To create an account, register at [https://dataspace.copernicus.eu/](https://dataspace.copernicus.eu/)
+
+Note: The environment variables `VITE_COPERNICUS_USERNAME` and `VITE_COPERNICUS_PASSWORD` are kept for potential future use with server-side proxy implementations, but are not required for the current browser-based download approach.
+
+### Other Optional Variables
+
+- `VITE_PC_SUBSCRIPTION_KEY`: Microsoft Planetary Computer subscription key for higher rate limits
+- `VITE_S3_REQUESTER_PAYS`: Set to `true` for requester-pays S3 buckets
+- `VITE_GOOGLE_TILE_URL`: Custom Google Maps tile URL
 
 ## Notice
 

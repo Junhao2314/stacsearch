@@ -15,7 +15,7 @@
 /** @typedef {import('./CollectionPicker.js').CollectionPicker} CollectionPicker */
 
 import { formatItemForDisplay, getItemThumbnail, resolveAssetHref } from '../stac-service.js';
-import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets, downloadAssetsAsZip, formatBytes } from '../download-clients.js';
+import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets, downloadAssetsAsZip, formatBytes, isItemSentinel1, downloadSentinel1Product } from '../download-clients.js';
 import { coalesce, escapeHtml, throttle } from './utils.js';
 
 export class UIController {
@@ -997,7 +997,11 @@ export class UIController {
         const provider = document.getElementById('provider')?.value || 'planetary-computer';
         const candidates = choosePrimaryAssets(item);
         
-        if (!candidates.length) {
+        // Check if this is a Sentinel-1 item
+        // 检查是否为 Sentinel-1 项目
+        const isSentinel1 = isItemSentinel1(item);
+        
+        if (!candidates.length && !isSentinel1) {
             alert('No downloadable assets found for this item.');
             return;
         }
@@ -1027,47 +1031,78 @@ export class UIController {
             `;
         }).join('');
 
-        dialog.innerHTML = `
-            <div class="dialog-header">
-                <h3 id="download-dialog-title">Select assets to download</h3>
-                <div class="list-actions">
-                    <button class="download-btn secondary" id="select-all">Select All</button>
-                    <button class="download-btn secondary" id="deselect-all">Deselect All</button>
+        // Different dialog content for Sentinel-1 vs other datasets
+        // Sentinel-1 与其他数据集使用不同的对话框内容
+        if (isSentinel1) {
+            // Simplified dialog for Sentinel-1 (only Full ZIP available)
+            // Sentinel-1 简化对话框（只有 Full ZIP 可用）
+            dialog.innerHTML = `
+                <div class="dialog-header">
+                    <h3 id="download-dialog-title">Download Sentinel-1 Product</h3>
                 </div>
-            </div>
-            <div class="asset-list" role="list" aria-label="Downloadable assets">${assetRows}</div>
-            <div id="zip-status" class="zip-status" aria-live="polite"></div>
-            <div class="zip-progress-row hidden" id="zip-progress-row">
-                <div class="progress-bar"><div class="bar" id="zip-progress-bar"></div></div>
-                <span class="progress-text" id="zip-progress-text">0%</span>
-            </div>
-            <div class="dialog-actions">
-                <div class="action-row-left">
-                    ${supportsDirPicker ? '<button class="download-btn" id="pick-folder">Select Folder</button>' : '<span style="color:#5a6c7d; font-size:0.85rem;">Folder selection not supported.</span>'}
+                <div class="sentinel1-download-info">
+                    <p>Download the complete Sentinel-1 product as a ZIP file from Copernicus Data Space.</p>
+                    <p class="size-hint">Typical size: 1-8 GB</p>
                 </div>
-                <div class="action-row-right">
-                    <button class="download-btn" id="download-zip" title="Download all selected assets as a single ZIP file">
+                <div id="zip-status" class="zip-status" aria-live="polite"></div>
+                <div class="zip-progress-row hidden" id="zip-progress-row">
+                    <div class="progress-bar"><div class="bar" id="zip-progress-bar"></div></div>
+                    <span class="progress-text" id="zip-progress-text">0%</span>
+                </div>
+                <div class="dialog-actions sentinel1-actions-simple">
+                    <button class="download-btn" id="download-zip" title="Download full Sentinel-1 product from Copernicus">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        ZIP
+                        Download ZIP
                     </button>
-                    <button class="download-btn" id="start-download">Start</button>
-                    <button class="download-btn" id="stop-download">Stop</button>
+                    <button class="download-btn" id="stop-download" disabled>Stop</button>
                     <button class="download-btn secondary" id="close-download">Close</button>
                 </div>
-            </div>
-        `;
+            `;
+        } else {
+            // Full dialog for other datasets
+            // 其他数据集的完整对话框
+            dialog.innerHTML = `
+                <div class="dialog-header">
+                    <h3 id="download-dialog-title">Select assets to download</h3>
+                    <div class="list-actions">
+                        <button class="download-btn secondary" id="select-all">Select All</button>
+                        <button class="download-btn secondary" id="deselect-all">Deselect All</button>
+                    </div>
+                </div>
+                <div class="asset-list" role="list" aria-label="Downloadable assets">${assetRows}</div>
+                <div id="zip-status" class="zip-status" aria-live="polite"></div>
+                <div class="zip-progress-row hidden" id="zip-progress-row">
+                    <div class="progress-bar"><div class="bar" id="zip-progress-bar"></div></div>
+                    <span class="progress-text" id="zip-progress-text">0%</span>
+                </div>
+                <div class="dialog-actions">
+                    <div class="action-row-left">
+                        ${supportsDirPicker ? '<button class="download-btn" id="pick-folder">Select Folder</button>' : '<span style="color:var(--text-secondary); font-size:0.85rem;">Folder selection not supported.</span>'}
+                    </div>
+                    <div class="action-row-right">
+                        <button class="download-btn" id="download-zip" title="Download all selected assets as a single ZIP file">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            ZIP
+                        </button>
+                        <button class="download-btn" id="start-download">Start</button>
+                        <button class="download-btn" id="stop-download">Stop</button>
+                        <button class="download-btn secondary" id="close-download">Close</button>
+                    </div>
+                </div>
+            `;
+        }
 
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
 
-        this._setupDownloadDialogEvents(dialog, overlay, candidates, provider, item);
+        this._setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, isSentinel1);
     }
 
     /**
      * Setup download dialog events
      * 设置下载对话框事件
      */
-    _setupDownloadDialogEvents(dialog, overlay, candidates, provider, item) {
+    _setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, isSentinel1) {
         const dialogState = {
             directoryHandle: null,
             dlAbortController: null,
@@ -1173,6 +1208,58 @@ export class UIController {
         const zipBtn = dialog.querySelector('#download-zip');
         stopBtn.disabled = true;
 
+        // Sentinel-1 Full Product Download Handler / Sentinel-1 完整产品下载处理
+        const doSentinel1Download = async () => {
+            // Confirm large download / 确认大文件下载
+            if (!confirm('Sentinel-1 products are typically 1-8 GB in size.\nThis download may take a while.\n\nContinue?')) {
+                return;
+            }
+
+            setButtonsEnabled(false);
+            updateZipStatus('');
+            updateZipProgress(0, false);
+            dialogState.dlAbortController = new AbortController();
+
+            try {
+                const result = await downloadSentinel1Product(item, {
+                    onProgress: (p) => {
+                        if (p.percent != null) {
+                            updateZipProgress(p.percent, true);
+                        }
+                    },
+                    onStatus: (message) => {
+                        updateZipStatus(message);
+                    },
+                    abortSignal: dialogState.dlAbortController.signal
+                });
+
+                if (result.success) {
+                    const sizeStr = result.size ? ` (${formatBytes(result.size)})` : '';
+                    updateZipStatus(`✓ Download complete: ${result.filename}${sizeStr}`);
+                    updateZipProgress(100, true);
+                } else {
+                    if (result.error && result.error.includes('cancelled')) {
+                        updateZipStatus('Download stopped', false);
+                    } else {
+                        updateZipStatus(`✗ ${result.error}`, true);
+                        alert(result.error);
+                    }
+                    updateZipProgress(0, false);
+                }
+            } catch (e) {
+                if (e?.name === 'AbortError') {
+                    updateZipStatus('Download stopped', false);
+                } else {
+                    updateZipStatus(`Error: ${e.message}`, true);
+                    console.error('Sentinel-1 download error:', e);
+                }
+                updateZipProgress(0, false);
+            } finally {
+                setButtonsEnabled(true);
+                dialogState.dlAbortController = null;
+            }
+        };
+
         // ZIP Download Handler / ZIP 下载处理
         const doZipDownload = async (skipSizeWarning = false) => {
             const selections = getSelectedSelections();
@@ -1248,7 +1335,15 @@ export class UIController {
             }
         };
 
-        addTrackedListener(zipBtn, 'click', () => doZipDownload(false));
+        // ZIP button click handler - use Sentinel-1 download for Sentinel-1 items
+        // ZIP 按钮点击处理 - 对于 Sentinel-1 项目使用 Sentinel-1 下载
+        addTrackedListener(zipBtn, 'click', () => {
+            if (isSentinel1) {
+                doSentinel1Download();
+            } else {
+                doZipDownload(false);
+            }
+        });
 
         // Individual Download Handler / 单独下载处理
         addTrackedListener(startBtn, 'click', async () => {

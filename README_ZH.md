@@ -11,6 +11,8 @@
 - 📍 **地图上绘制**：可在地图上直接绘制边界框进行空间查询
 - 📊 **详细信息**：在弹窗中查看条目的详细信息
 - ⬇️ **资产下载**：直接从详情页下载条目资产（支持 Planetary Computer 签名和基本 S3 处理）
+- 🛰️ **Sentinel-1 完整产品下载**：从 Copernicus Data Space 下载完整的 Sentinel-1 产品 ZIP 文件（在新标签页中打开，通过浏览器进行认证）
+- 🌐 **多数据源支持**：支持 Microsoft Planetary Computer、AWS Earth Search 和 Copernicus Data Space
 
 ## 快速开始
 
@@ -55,7 +57,7 @@ npm run preview
 
 ## 使用方法
 
-1. **选择数据源**：从下拉菜单中选择 STAC 数据提供商（如 Microsoft Planetary Computer、AWS Earth Search）
+1. **选择数据源**：从下拉菜单中选择 STAC 数据提供商（如 Microsoft Planetary Computer、AWS Earth Search、Copernicus Data Space）
 2. **选择集合**：点击"选择集合"浏览并选择卫星影像集合
 3. **设置日期范围**：指定搜索的时间段
 4. **定义感兴趣区域**：
@@ -64,6 +66,24 @@ npm run preview
 5. **搜索**：点击"搜索"按钮查找匹配的条目
 6. **浏览结果**：在侧边栏查看搜索结果，悬停可在地图上高亮显示
 7. **查看详情**：点击任意结果查看详细信息并下载资产
+
+## 环境变量配置
+
+要获得完整功能，可以配置以下环境变量。基于 `.env.example` 创建 `.env` 文件：
+
+### Copernicus Data Space（Sentinel-1 完整产品下载）
+
+Sentinel-1 完整产品下载通过在新浏览器标签页中打开 Copernicus Data Space 下载页面来实现。如果尚未登录，系统会提示您使用 Copernicus 账号登录。
+
+要创建账号，请在 [https://dataspace.copernicus.eu/](https://dataspace.copernicus.eu/) 注册。
+
+注意：环境变量 `VITE_COPERNICUS_USERNAME` 和 `VITE_COPERNICUS_PASSWORD` 保留用于将来可能的服务器端代理实现，但当前基于浏览器的下载方式不需要这些变量。
+
+### 其他可选变量
+
+- `VITE_PC_SUBSCRIPTION_KEY`：Microsoft Planetary Computer 订阅密钥，可获得更高的 API 速率限制
+- `VITE_S3_REQUESTER_PAYS`：设为 `true` 以访问请求者付费的 S3 存储桶
+- `VITE_GOOGLE_TILE_URL`：自定义 Google 地图瓦片 URL
 
 ## 注意事项
 

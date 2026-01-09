@@ -1138,7 +1138,7 @@ body {
 }
 
 .modal-content {
-    background: white;
+    background: var(--bg-primary);
     width: 90%;
     max-width: 800px;
     max-height: 80vh;
@@ -1149,10 +1149,10 @@ body {
 }
 
 .modal-content h2 {
-    color: #2c3e50;
+    color: var(--text-primary);
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
-    border-bottom: 2px solid #e9ecef;
+    border-bottom: 2px solid var(--border-color);
 }
 
 /* 
@@ -1200,7 +1200,7 @@ body {
  */
 .asset-detail {
     margin-top: 0.75rem;
-    background: #f8f9fa;
+    background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 0.75rem;
@@ -1209,7 +1209,7 @@ body {
 .asset-detail h4 {
     margin: 0 0 0.5rem 0;
     font-size: 1rem;
-    color: #34495e;
+    color: var(--text-secondary);
 }
 
 
@@ -1279,7 +1279,7 @@ body {
 }
 
 .detail-section h3 {
-    color: #34495e;
+    color: var(--text-primary);
     font-size: 1.1rem;
     margin-bottom: 0.75rem;
 }
@@ -1330,7 +1330,7 @@ body {
 
 
 .detail-section pre {
-    background: #f8f9fa;
+    background: var(--bg-tertiary);
     padding: 1rem;
     border-radius: 4px;
     overflow-x: auto;
@@ -1346,7 +1346,7 @@ body {
 
 .detail-grid .label {
     font-weight: 500;
-    color: #5a6c7d;
+    color: var(--text-secondary);
 }
 
 .detail-grid .value {
@@ -1375,7 +1375,7 @@ body {
     justify-content: center;
 }
 .download-dialog {
-    background: #fff;
+    background: var(--bg-primary);
     width: 90%;
     max-width: 700px;
     max-height: 80vh;
@@ -1402,7 +1402,7 @@ body {
 }
 .filename-hint {
     font-size: 0.85rem;
-    color: #5a6c7d;
+    color: var(--text-secondary);
     white-space: normal;
     overflow: visible;
     text-overflow: unset;
@@ -1423,7 +1423,7 @@ body {
     padding: 0.5rem 0.6rem;
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    background: #fff;
+    background: var(--bg-primary);
     box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
     cursor: pointer;
     transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
@@ -1444,7 +1444,7 @@ body {
     transform: translateY(1px);
 }
 .asset-name {
-    color: #2c3e50;
+    color: var(--text-primary);
 }
 .filename-input {
     width: 100%;
@@ -1504,6 +1504,102 @@ body {
 .zip-status.error {
     color: var(--error-color, #e74c3c);
 }
+
+/* Sentinel-1 Simplified Download Dialog / Sentinel-1 简化下载对话框 */
+.sentinel1-download-info {
+    text-align: center;
+    padding: 1rem 0;
+}
+.sentinel1-download-info p {
+    margin: 0.5rem 0;
+    color: var(--text-primary);
+}
+.sentinel1-download-info .size-hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #5a6c7d);
+}
+.sentinel1-actions-simple {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+}
+
+/* Sentinel-1 Full Product Download Section / Sentinel-1 完整产品下载区域 */
+.sentinel1-section {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.8rem;
+}
+.sentinel1-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 0.4rem;
+}
+.sentinel1-header svg {
+    flex-shrink: 0;
+}
+.sentinel1-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #5a6c7d);
+    margin: 0 0 0.6rem 0;
+}
+.sentinel1-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    border: none;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+}
+.sentinel1-btn:hover:enabled {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+    filter: brightness(1.05);
+}
+.sentinel1-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    filter: none;
+}
+.sentinel1-btn svg {
+    flex-shrink: 0;
+}
+.sentinel1-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--warning-color, #f39c12);
+    background: rgba(243, 156, 18, 0.1);
+    border: 1px solid rgba(243, 156, 18, 0.3);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin: 0;
+}
+.sentinel1-warning svg {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+#sentinel1-progress-row {
+    margin-top: 0.5rem;
+}
+#sentinel1-status {
+    margin-top: 0.3rem;
+}
+
 .zip-progress-row {
     margin: 0.5rem 0;
     display: flex;
@@ -1538,7 +1634,7 @@ body {
 }
 .progress-text {
     font-size: 0.8rem;
-    color: #5a6c7d;
+    color: var(--text-secondary);
     margin-left: 0.5rem;
     display: flex;
     flex-wrap: wrap;
@@ -1555,7 +1651,7 @@ body {
 .loading {
     text-align: center;
     padding: 2rem;
-    color: #7b8a9a;
+    color: var(--text-muted);
 }
 
 .loading::after {
@@ -1825,7 +1921,7 @@ body {
     white-space: pre-wrap;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 0.8rem;
-    background: white;
+    background: var(--bg-tertiary);
     padding: 0.5rem;
     border-radius: 4px;
     border: 1px solid var(--border-color);
@@ -2132,6 +2228,25 @@ body {
 
 [data-theme="dark"] .zip-status.error {
     color: #ff6b6b;
+}
+
+[data-theme="dark"] .sentinel1-section {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+    border-color: rgba(102, 126, 234, 0.4);
+}
+
+[data-theme="dark"] .sentinel1-header {
+    color: #8b9eff;
+}
+
+[data-theme="dark"] .sentinel1-desc {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .sentinel1-warning {
+    background: rgba(243, 156, 18, 0.15);
+    border-color: rgba(243, 156, 18, 0.4);
+    color: #ffc107;
 }
 
 [data-theme="dark"] .progress-bar {

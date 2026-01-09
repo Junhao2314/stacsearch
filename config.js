@@ -106,6 +106,14 @@ export const STAC_PROVIDERS = {
         url: 'https://earth-search.aws.element84.com/v1',
         name: 'AWS Earth Search',
     },
+    'copernicus-dataspace': {
+        url: 'https://catalogue.dataspace.copernicus.eu/stac',
+        name: 'Copernicus Data Space',
+        // OData API for product download / 用于产品下载的 OData API
+        odataUrl: 'https://catalogue.dataspace.copernicus.eu/odata/v1',
+        // Token endpoint for authentication / 认证令牌端点
+        tokenUrl: 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token',
+    },
     // Add more providers here / 在此添加更多数据源：
     // 'usgs': {
     //     url: 'https://landsatlook.usgs.gov/stac-server',
@@ -177,6 +185,12 @@ export const PRIORITY_COLLECTIONS = {
         // Note: landsat-c2-l2 excluded - requires AWS credentials (see comment above)
         // 注意：不包含 landsat-c2-l2 - 需要 AWS 凭证（见上方注释）
     ],
+    'copernicus-dataspace': [
+        'SENTINEL-1',         // Sentinel-1 SAR (GRD, SLC, OCN)
+        'SENTINEL-2',         // Sentinel-2 MSI
+        'SENTINEL-3',         // Sentinel-3 (OLCI, SLSTR, etc.)
+        'SENTINEL-5P',        // Sentinel-5P TROPOMI
+    ],
 };
 
 /**
@@ -230,6 +244,23 @@ export const DOWNLOAD_CONFIG = {
      */
     s3RequesterPays: getEnvOrWindow('VITE_S3_REQUESTER_PAYS', 'S3_REQUESTER_PAYS', 'false')
         .toString().toLowerCase() === 'true',
+
+    /**
+     * Copernicus Data Space Ecosystem credentials
+     * Copernicus Data Space Ecosystem 凭证
+     * 
+     * Required for downloading full Sentinel-1 products as ZIP files
+     * 下载完整 Sentinel-1 产品 ZIP 文件时需要
+     * 
+     * Register at: https://dataspace.copernicus.eu/
+     * 注册地址：https://dataspace.copernicus.eu/
+     * 
+     * Set via / 设置方式：
+     * - Env / 环境变量：VITE_COPERNICUS_USERNAME / VITE_COPERNICUS_PASSWORD
+     * - Window：window.COPERNICUS_USERNAME / window.COPERNICUS_PASSWORD
+     */
+    copernicusUsername: getEnvOrWindow('VITE_COPERNICUS_USERNAME', 'COPERNICUS_USERNAME', ''),
+    copernicusPassword: getEnvOrWindow('VITE_COPERNICUS_PASSWORD', 'COPERNICUS_PASSWORD', ''),
 };
 
 /* ============================================================================

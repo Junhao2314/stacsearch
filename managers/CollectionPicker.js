@@ -183,6 +183,19 @@ export class CollectionPicker {
                 .concat(collections.map(c => `<option value="${c.id}" title="${c.title}">${c.title}</option>`));
             select.innerHTML = opts.join('');
             select.value = '';
+        } else if (provider === 'copernicus-dataspace') {
+            // Copernicus Data Space collections
+            // Copernicus Data Space 集合
+            const copernicusCollections = [
+                { id: 'SENTINEL-1', title: 'Sentinel-1 SAR (GRD, SLC, OCN)' },
+                { id: 'SENTINEL-2', title: 'Sentinel-2 MSI' },
+                { id: 'SENTINEL-3', title: 'Sentinel-3 (OLCI, SLSTR, etc.)' },
+                { id: 'SENTINEL-5P', title: 'Sentinel-5P TROPOMI' },
+            ];
+            const opts = ['<option value="">Select a collection...</option>']
+                .concat(copernicusCollections.map(c => `<option value="${c.id}" title="${c.title}">${c.title}</option>`));
+            select.innerHTML = opts.join('');
+            select.value = '';
         } else if (this.defaultCollectionOptionsHTML) {
             select.innerHTML = this.defaultCollectionOptionsHTML;
         }

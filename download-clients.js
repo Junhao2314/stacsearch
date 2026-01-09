@@ -5,6 +5,7 @@
  * - DefaultHttpClient: downloads via HTTP(S) / 通过 HTTP(S) 下载
  * - PlanetaryComputerClient: signs Azure Blob URLs via MPC SAS API then downloads / 通过 MPC SAS API 签名 Azure Blob URL 后下载
  * - S3Client: attempts to download s3:// assets via HTTPS mapping (best-effort) and optional requester-pays header / 尝试通过 HTTPS 映射下载 s3:// 资源（尽力而为）并支持可选的请求者付费头
+ * - CopernicusClient: downloads full Sentinel-1 products from Copernicus Data Space / 从 Copernicus Data Space 下载完整的 Sentinel-1 产品
  */
 
 /** @typedef {import('./types.js').STACItem} STACItem */
@@ -14,6 +15,11 @@
 /** @typedef {import('./types.js').DownloadOptions} DownloadOptions */
 
 import { DOWNLOAD_CONFIG } from './config.js';
+import { 
+    isSentinel1Collection, 
+    hasCopernicusCredentials, 
+    downloadSentinel1FullProduct 
+} from './copernicus-client.js';
 import JSZip from 'jszip';
 
 const PC_SIGN_ENDPOINT = DOWNLOAD_CONFIG.pcSignEndpoint;
@@ -779,3 +785,44 @@ export async function downloadAssetsAsZip(selections, options) {
 export function getZipSizeLimit() {
   return ZIP_WARN_SIZE;
 }
+
+// ============================================================================
+// Sentinel-1 Full Product Download / Sentinel-1 完整产品下载
+// ============================================================================
+
+/**
+ * Check if item is from a Sentinel-1 collection
+ * 检查项目是否来自 Sentinel-1 集合
+ * 
+ * @param {STACItem} item - STAC item / STAC 项目
+ * @returns {boolean} Whether item is Sentinel-1 / 是否为 Sentinel-1
+ */
+export function isItemSentinel1(item) {
+  return isSentinel1Collection(item?.collection);
+}
+
+/**
+ * Check if Sentinel-1 full product download is available
+ * 检查 Sentinel-1 完整产品下载是否可用
+ * 
+ * @returns {boolean} Whether download is available / 下载是否可用
+ */
+export function isSentinel1DownloadAvailable() {
+  return hasCopernicusCredentials();
+}
+
+/**
+ * Download Sentinel-1 full product as ZIP
+ * 下载 Sentinel-1 完整产品 ZIP 文件
+ * 
+ * @param {STACItem} item - STAC item / STAC 项目
+ * @param {Object} [options] - Download options / 下载选项
+ * @param {function(DownloadProgress): void} [options.onProgress] - Progress callback / 进度回调
+ * @param {function(string): void} [options.onStatus] - Status callback / 状态回调
+ * @param {AbortSignal} [options.abortSignal] - Abort signal / 中止信号
+ * @returns {Promise<{success: boolean, error?: string, filename?: string, size?: number}>} Download result / 下载结果
+ */
+export async function downloadSentinel1Product(item, options = {}) {
+  return await downloadSentinel1FullProduct(item, options);
+}
+

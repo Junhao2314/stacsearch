@@ -283,3 +283,38 @@
 // Export empty object to make this a module
 // 导出空对象以使其成为模块
 export {};
+
+// ============================================================================
+// Copernicus Download Types / Copernicus 下载类型
+// ============================================================================
+
+/**
+ * Copernicus OAuth2 Token
+ * Copernicus OAuth2 令牌
+ * 
+ * @typedef {Object} CopernicusToken
+ * @property {string} access_token - OAuth2 access token / OAuth2 访问令牌
+ * @property {number} expires_in - Token expiry in seconds / 令牌过期时间（秒）
+ * @property {number} obtainedAt - Timestamp when token was obtained / 获取令牌的时间戳
+ */
+
+/**
+ * Copernicus Download Options
+ * Copernicus 下载选项
+ * 
+ * @typedef {Object} CopernicusDownloadOptions
+ * @property {function(DownloadProgress): void} [onProgress] - Progress callback / 进度回调
+ * @property {function(string): void} [onStatus] - Status message callback / 状态消息回调
+ * @property {AbortSignal} [abortSignal] - Abort signal / 中止信号
+ */
+
+/**
+ * Copernicus Download Result
+ * Copernicus 下载结果
+ * 
+ * @typedef {Object} CopernicusDownloadResult
+ * @property {boolean} success - Whether download succeeded / 下载是否成功
+ * @property {string} [error] - Error message if failed / 失败时的错误消息
+ * @property {string} [filename] - Downloaded filename / 下载的文件名
+ * @property {number} [size] - File size in bytes / 文件大小（字节）
+ */
