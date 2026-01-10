@@ -8,10 +8,10 @@
  * Reference: https://documentation.dataspace.copernicus.eu/
  */
 
-/** @typedef {import('./types.js').STACItem} STACItem */
-/** @typedef {import('./types.js').DownloadProgress} DownloadProgress */
+/** @typedef {import('../types/index.js').STACItem} STACItem */
+/** @typedef {import('../types/index.js').DownloadProgress} DownloadProgress */
 
-import { DOWNLOAD_CONFIG, STAC_PROVIDERS } from './config.js';
+import { DOWNLOAD_CONFIG, STAC_PROVIDERS } from '../config/index.js';
 
 /**
  * @typedef {Object} CopernicusToken

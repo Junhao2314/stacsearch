@@ -4,7 +4,8 @@
       "mcp__ydc-server__you-search",
       "mcp__ydc-server__you-contents",
       "WebFetch(domain:documentation.dataspace.copernicus.eu)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebSearch"
     ]
   }
 }

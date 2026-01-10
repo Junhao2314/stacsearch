@@ -6,17 +6,17 @@
  * 负责事件绑定、模态框管理、结果列表渲染
  */
 
-/** @typedef {import('../types.js').STACItem} STACItem */
-/** @typedef {import('../types.js').STACAsset} STACAsset */
-/** @typedef {import('../types.js').DownloadProgress} DownloadProgress */
+/** @typedef {import('../types/index.js').STACItem} STACItem */
+/** @typedef {import('../types/index.js').STACAsset} STACAsset */
+/** @typedef {import('../types/index.js').DownloadProgress} DownloadProgress */
 /** @typedef {import('./MapManager.js').MapManager} MapManager */
 /** @typedef {import('./SearchManager.js').SearchManager} SearchManager */
 /** @typedef {import('./DrawingManager.js').DrawingManager} DrawingManager */
 /** @typedef {import('./CollectionPicker.js').CollectionPicker} CollectionPicker */
 
-import { formatItemForDisplay, getItemThumbnail, resolveAssetHref } from '../stac-service.js';
-import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets, downloadAssetsAsZip, formatBytes, isItemSentinel1, downloadSentinel1Product } from '../download-clients.js';
-import { coalesce, escapeHtml, throttle } from './utils.js';
+import { formatItemForDisplay, getItemThumbnail, resolveAssetHref } from '../api/stac-service.js';
+import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets, downloadAssetsAsZip, formatBytes, isItemSentinel1, downloadSentinel1Product } from '../api/download-clients.js';
+import { coalesce, escapeHtml, throttle } from '../utils/index.js';
 
 export class UIController {
     /**

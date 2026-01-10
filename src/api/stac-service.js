@@ -6,12 +6,12 @@
  * 处理与 Microsoft Planetary Computer 的所有 STAC API 交互
  */
 
-/** @typedef {import('./types.js').STACItem} STACItem */
-/** @typedef {import('./types.js').STACCollection} STACCollection */
-/** @typedef {import('./types.js').STACSearchResponse} STACSearchResponse */
-/** @typedef {import('./types.js').SearchParams} SearchParams */
+/** @typedef {import('../types/index.js').STACItem} STACItem */
+/** @typedef {import('../types/index.js').STACCollection} STACCollection */
+/** @typedef {import('../types/index.js').STACSearchResponse} STACSearchResponse */
+/** @typedef {import('../types/index.js').SearchParams} SearchParams */
 
-import { STAC_PROVIDERS, DEFAULT_PROVIDER, SEARCH_CONFIG } from './config.js';
+import { STAC_PROVIDERS, DEFAULT_PROVIDER, SEARCH_CONFIG } from '../config/index.js';
 
 /** @type {string} */
 let currentProvider = DEFAULT_PROVIDER;

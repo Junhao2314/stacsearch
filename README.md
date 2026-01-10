@@ -14,6 +14,52 @@ A web platform for searching and visualizing STAC (SpatioTemporal Asset Catalog)
 - 🛰️ **Sentinel-1 Full Product Download**: Download complete Sentinel-1 products as ZIP files from Copernicus Data Space (opens in new tab for browser-based authentication)
 - 🌐 **Multiple Data Providers**: Support for Microsoft Planetary Computer, AWS Earth Search, and Copernicus Data Space
 
+## Project Structure
+
+```
+stacsearch/
+├── index.html                    # Entry HTML file
+├── package.json                  # Project dependencies
+├── vite.config.mjs               # Vite configuration
+├── .env.example                  # Environment variables template
+│
+├── src/                          # Source code directory
+│   ├── main.js                   # Application entry point
+│   │
+│   ├── api/                      # API clients
+│   │   ├── copernicus-client.js  # Copernicus Data Space client
+│   │   ├── download-clients.js   # Download clients
+│   │   └── stac-service.js       # STAC API service
+│   │
+│   ├── basemaps/                 # Basemap configurations
+│   │   ├── esri.js               # Esri basemaps
+│   │   ├── google.js             # Google basemaps
+│   │   ├── osm.js                # OpenStreetMap
+│   │   └── tianditu.js           # Tianditu (China)
+│   │
+│   ├── config/                   # Configuration files
+│   │   └── index.js              # App configuration
+│   │
+│   ├── managers/                 # Feature managers
+│   │   ├── index.js              # Unified exports
+│   │   ├── CollectionPicker.js   # Collection picker UI
+│   │   ├── DrawingManager.js     # Map drawing tools
+│   │   ├── MapManager.js         # Map initialization & layers
+│   │   ├── SearchManager.js      # STAC search logic
+│   │   └── UIController.js       # UI event handling
+│   │
+│   ├── styles/                   # Stylesheets
+│   │   └── main.css              # Main styles
+│   │
+│   ├── types/                    # Type definitions
+│   │   └── index.js              # JSDoc type definitions
+│   │
+│   └── utils/                    # Utility functions
+│       └── index.js              # Helper functions
+│
+└── dist/                         # Build output
+```
+
 ## Getting Started
 
 ### Prerequisites

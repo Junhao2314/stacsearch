@@ -17,7 +17,7 @@
 import 'ol/ol.css';
 
 // Configuration / 配置
-import { MAP_CONFIG, BASEMAP_CONFIG } from './config.js';
+import { MAP_CONFIG, BASEMAP_CONFIG } from './config/index.js';
 
 // Managers / 管理模块
 import { MapManager } from './managers/MapManager.js';

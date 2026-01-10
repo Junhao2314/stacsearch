@@ -6,18 +6,18 @@
  * 负责 STAC 搜索、结果存储、分页
  */
 
-/** @typedef {import('../types.js').STACItem} STACItem */
-/** @typedef {import('../types.js').STACSearchResponse} STACSearchResponse */
-/** @typedef {import('../types.js').SearchParams} SearchParams */
-/** @typedef {import('../types.js').SearchValidation} SearchValidation */
-/** @typedef {import('../types.js').PaginationResult} PaginationResult */
-/** @typedef {import('../types.js').GeoJSONGeometry} GeoJSONGeometry */
+/** @typedef {import('../types/index.js').STACItem} STACItem */
+/** @typedef {import('../types/index.js').STACSearchResponse} STACSearchResponse */
+/** @typedef {import('../types/index.js').SearchParams} SearchParams */
+/** @typedef {import('../types/index.js').SearchValidation} SearchValidation */
+/** @typedef {import('../types/index.js').PaginationResult} PaginationResult */
+/** @typedef {import('../types/index.js').GeoJSONGeometry} GeoJSONGeometry */
 /** @typedef {import('./MapManager.js').MapManager} MapManager */
 /** @typedef {import('./DrawingManager.js').DrawingManager} DrawingManager */
 
 import { GeoJSON } from 'ol/format';
-import { searchStacItems, setProvider } from '../stac-service.js';
-import { PAGINATION_CONFIG, SEARCH_CONFIG } from '../config.js';
+import { searchStacItems, setProvider } from '../api/stac-service.js';
+import { PAGINATION_CONFIG, SEARCH_CONFIG } from '../config/index.js';
 
 export class SearchManager {
     constructor() {

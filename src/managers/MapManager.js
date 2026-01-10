@@ -6,8 +6,8 @@
  * 负责 OpenLayers 地图初始化、图层管理、底图切换、悬停交互
  */
 
-/** @typedef {import('../types.js').MapConfig} MapConfig */
-/** @typedef {import('../types.js').BasemapConfig} BasemapConfig */
+/** @typedef {import('../types/index.js').MapConfig} MapConfig */
+/** @typedef {import('../types/index.js').BasemapConfig} BasemapConfig */
 
 import Map from 'ol/Map';
 import View from 'ol/View';

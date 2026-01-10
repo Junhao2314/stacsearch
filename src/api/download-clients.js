@@ -8,13 +8,13 @@
  * - CopernicusClient: downloads full Sentinel-1 products from Copernicus Data Space / 从 Copernicus Data Space 下载完整的 Sentinel-1 产品
  */
 
-/** @typedef {import('./types.js').STACItem} STACItem */
-/** @typedef {import('./types.js').STACAsset} STACAsset */
-/** @typedef {import('./types.js').DownloadSelection} DownloadSelection */
-/** @typedef {import('./types.js').DownloadProgress} DownloadProgress */
-/** @typedef {import('./types.js').DownloadOptions} DownloadOptions */
+/** @typedef {import('../types/index.js').STACItem} STACItem */
+/** @typedef {import('../types/index.js').STACAsset} STACAsset */
+/** @typedef {import('../types/index.js').DownloadSelection} DownloadSelection */
+/** @typedef {import('../types/index.js').DownloadProgress} DownloadProgress */
+/** @typedef {import('../types/index.js').DownloadOptions} DownloadOptions */
 
-import { DOWNLOAD_CONFIG } from './config.js';
+import { DOWNLOAD_CONFIG } from '../config/index.js';
 import { 
     isSentinel1Collection, 
     hasCopernicusCredentials, 

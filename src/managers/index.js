@@ -1,7 +1,7 @@
 /**
  * Managers module index
  * 管理模块统一导出
- * 
+ *
  * Unified export for all manager modules
  */
 
@@ -10,4 +10,4 @@ export { SearchManager } from './SearchManager.js';
 export { DrawingManager } from './DrawingManager.js';
 export { CollectionPicker } from './CollectionPicker.js';
 export { UIController } from './UIController.js';
-export { coalesce, escapeHtml, paginate } from './utils.js';
+export { coalesce, escapeHtml, paginate } from '../utils/index.js';

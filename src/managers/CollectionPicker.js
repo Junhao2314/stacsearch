@@ -6,11 +6,11 @@
  * 负责集合列表加载、搜索、分页、详情展示
  */
 
-/** @typedef {import('../types.js').STACCollection} STACCollection */
+/** @typedef {import('../types/index.js').STACCollection} STACCollection */
 
-import { getCollections, getCollection } from '../stac-service.js';
-import { PAGINATION_CONFIG, PRIORITY_COLLECTIONS, MPC_COLLECTIONS } from '../config.js';
-import { paginate, escapeHtml, debounce } from './utils.js';
+import { getCollections, getCollection } from '../api/stac-service.js';
+import { PAGINATION_CONFIG, PRIORITY_COLLECTIONS, MPC_COLLECTIONS } from '../config/index.js';
+import { paginate, escapeHtml, debounce } from '../utils/index.js';
 
 export class CollectionPicker {
     constructor() {
