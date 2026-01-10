@@ -410,10 +410,10 @@ export class CollectionPicker {
                     <span class="info-label">Spatial Extent</span>
                     <span class="info-value">${spatialExtent}</span>
                 </div>
-                ${describedBy ? `
+                ${describedBy && describedBy.href && /^https?:\/\//i.test(describedBy.href) ? `
                     <div class="info-item">
                         <span class="info-label">Documentation</span>
-                        <span class="info-value"><a href="${describedBy.href}" target="_blank" rel="noopener noreferrer">${escapeHtml(describedBy.title || 'View Docs')}</a></span>
+                        <span class="info-value"><a href="${escapeHtml(describedBy.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(describedBy.title || 'View Docs')}</a></span>
                     </div>
                 ` : ''}
                 ${summariesHTML}
@@ -471,11 +471,11 @@ export class CollectionPicker {
                     if (key === 'eo:bands') {
                         return value.map(band => {
                             const parts = [];
-                            if (band.name) parts.push(`<strong>${band.name}</strong>`);
-                            if (band.common_name) parts.push(`(${band.common_name})`);
-                            if (band.description) parts.push(`- ${band.description}`);
-                            if (band.center_wavelength) parts.push(`λ=${band.center_wavelength}μm`);
-                            if (band.gsd) parts.push(`${band.gsd}m`);
+                            if (band.name) parts.push(`<strong>${escapeHtml(band.name)}</strong>`);
+                            if (band.common_name) parts.push(`(${escapeHtml(band.common_name)})`);
+                            if (band.description) parts.push(`- ${escapeHtml(band.description)}`);
+                            if (band.center_wavelength) parts.push(`λ=${escapeHtml(String(band.center_wavelength))}μm`);
+                            if (band.gsd) parts.push(`${escapeHtml(String(band.gsd))}m`);
                             return parts.join(' ');
                         }).join('<br>');
                     }

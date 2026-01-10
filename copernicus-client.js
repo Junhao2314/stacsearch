@@ -54,7 +54,7 @@ export async function getCopernicusToken() {
     }
 
     if (!hasCopernicusCredentials()) {
-        throw new Error('Copernicus credentials not configured. Please set VITE_COPERNICUS_USERNAME and VITE_COPERNICUS_PASSWORD environment variables.');
+        throw new Error('Copernicus credentials not configured. Please set window.COPERNICUS_USERNAME and window.COPERNICUS_PASSWORD in browser console.');
     }
 
     const tokenUrl = STAC_PROVIDERS['copernicus-dataspace'].tokenUrl;
@@ -69,7 +69,6 @@ export async function getCopernicusToken() {
 
     console.debug('[Copernicus] Attempting authentication for user:', DOWNLOAD_CONFIG.copernicusUsername);
     console.debug('[Copernicus] Token URL:', tokenUrl);
-    console.debug('[Copernicus] Request body:', formData.toString());
 
     let response;
     try {
@@ -292,7 +291,7 @@ export async function downloadCopernicusProduct(productId, filename, options = {
     if (!hasCopernicusCredentials()) {
         return {
             success: false,
-            error: 'Copernicus credentials not configured. Please set VITE_COPERNICUS_USERNAME and VITE_COPERNICUS_PASSWORD in .env file.'
+            error: 'Copernicus credentials not configured. Please set window.COPERNICUS_USERNAME and window.COPERNICUS_PASSWORD in browser console.'
         };
     }
 

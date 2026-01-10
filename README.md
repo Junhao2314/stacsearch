@@ -73,17 +73,23 @@ For full functionality, you can configure the following environment variables. C
 
 ### Copernicus Data Space (Sentinel-1 Full Product Download)
 
-Sentinel-1 full product downloads are handled by opening the Copernicus Data Space download page in a new browser tab. You will be prompted to log in with your Copernicus account if not already authenticated.
+Sentinel-1 full product downloads require authentication with Copernicus Data Space. Set your credentials at runtime in the browser console before downloading:
+
+```javascript
+window.COPERNICUS_USERNAME = 'your_username';
+window.COPERNICUS_PASSWORD = 'your_password';
+```
 
 To create an account, register at [https://dataspace.copernicus.eu/](https://dataspace.copernicus.eu/)
 
-Note: The environment variables `VITE_COPERNICUS_USERNAME` and `VITE_COPERNICUS_PASSWORD` are kept for potential future use with server-side proxy implementations, but are not required for the current browser-based download approach.
+Note: For security reasons, Copernicus credentials are only accepted via runtime injection to prevent them from being bundled into static assets.
 
-### Other Optional Variables
+### Optional Environment Variables
 
 - `VITE_PC_SUBSCRIPTION_KEY`: Microsoft Planetary Computer subscription key for higher rate limits
 - `VITE_S3_REQUESTER_PAYS`: Set to `true` for requester-pays S3 buckets
 - `VITE_GOOGLE_TILE_URL`: Custom Google Maps tile URL
+- `VITE_GOOGLE_SUBDOMAINS`: Google tile service subdomains (default: `mt0,mt1,mt2,mt3`)
 
 ## Notice
 

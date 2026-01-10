@@ -73,17 +73,23 @@ npm run preview
 
 ### Copernicus Data Space（Sentinel-1 完整产品下载）
 
-Sentinel-1 完整产品下载通过在新浏览器标签页中打开 Copernicus Data Space 下载页面来实现。如果尚未登录，系统会提示您使用 Copernicus 账号登录。
+Sentinel-1 完整产品下载需要 Copernicus Data Space 认证。下载前在浏览器控制台设置凭证：
+
+```javascript
+window.COPERNICUS_USERNAME = 'your_username';
+window.COPERNICUS_PASSWORD = 'your_password';
+```
 
 要创建账号，请在 [https://dataspace.copernicus.eu/](https://dataspace.copernicus.eu/) 注册。
 
-注意：环境变量 `VITE_COPERNICUS_USERNAME` 和 `VITE_COPERNICUS_PASSWORD` 保留用于将来可能的服务器端代理实现，但当前基于浏览器的下载方式不需要这些变量。
+注意：出于安全考虑，Copernicus 凭证仅通过运行时注入方式接受，防止被打包进静态资源。
 
-### 其他可选变量
+### 可选环境变量
 
 - `VITE_PC_SUBSCRIPTION_KEY`：Microsoft Planetary Computer 订阅密钥，可获得更高的 API 速率限制
 - `VITE_S3_REQUESTER_PAYS`：设为 `true` 以访问请求者付费的 S3 存储桶
 - `VITE_GOOGLE_TILE_URL`：自定义 Google 地图瓦片 URL
+- `VITE_GOOGLE_SUBDOMAINS`：Google 瓦片服务子域名（默认：`mt0,mt1,mt2,mt3`）
 
 ## 注意事项
 

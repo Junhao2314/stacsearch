@@ -35,6 +35,24 @@ jobs:
         env:
           NODE_ENV: production
       
+      - name: Inject runtime config
+        run: |
+          # Inject credentials as runtime config (not bundled by Vite)
+          # Using simple base64 to avoid plain text in source view (not encryption!)
+          if [ -n "$CP_USER" ] && [ -n "$CP_PASS" ]; then
+            USER_B64=$(echo -n "$CP_USER" | base64)
+            PASS_B64=$(echo -n "$CP_PASS" | base64)
+            cat > ./dist/runtime-config.js << EOF
+          (function(){try{window.COPERNICUS_USERNAME=atob('${USER_B64}');window.COPERNICUS_PASSWORD=atob('${PASS_B64}');}catch(e){}})();
+          EOF
+            echo "Runtime config injected"
+          else
+            echo "No Copernicus credentials configured, skipping runtime config"
+          fi
+        env:
+          CP_USER: ${{ secrets.VITE_COPERNICUS_USERNAME }}
+          CP_PASS: ${{ secrets.VITE_COPERNICUS_PASSWORD }}
+      
       - name: Setup Pages
         uses: actions/configure-pages@v4
       

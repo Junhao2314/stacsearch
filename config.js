@@ -255,12 +255,15 @@ export const DOWNLOAD_CONFIG = {
      * Register at: https://dataspace.copernicus.eu/
      * 注册地址：https://dataspace.copernicus.eu/
      * 
-     * Set via / 设置方式：
-     * - Env / 环境变量：VITE_COPERNICUS_USERNAME / VITE_COPERNICUS_PASSWORD
-     * - Window：window.COPERNICUS_USERNAME / window.COPERNICUS_PASSWORD
+     * SECURITY NOTE: Credentials are only accepted via runtime injection to prevent
+     * them from being bundled into static assets. Set in browser console before download:
+     * 安全说明：凭证仅通过运行时注入方式接受，防止被打包进静态资源。下载前在浏览器控制台设置：
+     * 
+     *   window.COPERNICUS_USERNAME = 'your_username';
+     *   window.COPERNICUS_PASSWORD = 'your_password';
      */
-    copernicusUsername: getEnvOrWindow('VITE_COPERNICUS_USERNAME', 'COPERNICUS_USERNAME', ''),
-    copernicusPassword: getEnvOrWindow('VITE_COPERNICUS_PASSWORD', 'COPERNICUS_PASSWORD', ''),
+    copernicusUsername: (typeof window !== 'undefined' && window.COPERNICUS_USERNAME) || '',
+    copernicusPassword: (typeof window !== 'undefined' && window.COPERNICUS_PASSWORD) || '',
 };
 
 /* ============================================================================
