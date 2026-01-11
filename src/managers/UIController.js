@@ -15,8 +15,9 @@
 /** @typedef {import('./CollectionPicker.js').CollectionPicker} CollectionPicker */
 
 import { formatItemForDisplay, getItemThumbnail, resolveAssetHref } from '../api/stac-service.js';
-import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets, downloadAssetsAsZip, formatBytes, isItemSentinel1, downloadSentinel1Product } from '../api/download-clients.js';
+import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets, formatBytes, isItemSentinel1, downloadSentinel1Product, isCopernicusProvider, downloadCopernicusProduct } from '../api/download-clients.js';
 import { coalesce, escapeHtml, throttle } from '../utils/index.js';
+import { unByKey } from 'ol/Observable';
 
 export class UIController {
     /**
@@ -43,10 +44,74 @@ export class UIController {
         this._paginationEl = null;
         /** @type {HTMLElement|null} */
         this._lastFocusedElement = null;
+
+        /** @type {Array<() => void>} */
+        this._uiCleanupFns = [];
+        /** @type {Array<() => void>} */
+        this._dateInputCleanupFns = [];
+        /** @type {any[]} OpenLayers events keys for cleanup */
+        this._mapEventKeys = [];
         
         // Create throttled version of pointer move handler
         // 创建节流版本的 pointer move 处理函数
         this._throttledPointerMove = throttle(this._handleMapPointerMoveCore.bind(this), 50);
+    }
+
+    _addTrackedListener(el, event, handler, options, bucket) {
+        if (!el?.addEventListener) return;
+        el.addEventListener(event, handler, options);
+        bucket.push(() => {
+            try {
+                el.removeEventListener(event, handler, options);
+            } catch {}
+        });
+    }
+
+    _addUiListener(el, event, handler, options) {
+        this._addTrackedListener(el, event, handler, options, this._uiCleanupFns);
+    }
+
+    _addDateInputListener(el, event, handler, options) {
+        this._addTrackedListener(el, event, handler, options, this._dateInputCleanupFns);
+    }
+
+    _cleanupBucket(bucket) {
+        const fns = bucket.splice(0, bucket.length);
+        for (const fn of fns) {
+            try { fn(); } catch {}
+        }
+    }
+
+    _cleanupUiListeners() {
+        this._cleanupBucket(this._uiCleanupFns);
+        try {
+            if (this._mapEventKeys.length) unByKey(this._mapEventKeys);
+        } catch {}
+        this._mapEventKeys = [];
+    }
+
+    _cleanupDateInputListeners() {
+        this._cleanupBucket(this._dateInputCleanupFns);
+    }
+
+    /**
+     * Dispose UI event listeners and detach references (helps avoid leaks on re-init/HMR)
+     */
+    dispose() {
+        this._cleanupUiListeners();
+        this._cleanupDateInputListeners();
+
+        try { this._resultsListEl?.replaceChildren?.(); } catch {}
+        try { this._paginationEl?.replaceChildren?.(); } catch {}
+        try { document.getElementById('item-details')?.replaceChildren?.(); } catch {}
+        try { document.querySelectorAll('.download-overlay')?.forEach(el => el.remove()); } catch {}
+        try { document.getElementById('item-modal')?.classList.remove('show'); } catch {}
+        try { document.getElementById('collection-modal')?.classList.remove('show'); } catch {}
+
+        this._resultsListEl = null;
+        this._paginationEl = null;
+        this._lastFocusedElement = null;
+        this.activeResultItemId = null;
     }
 
     /**
@@ -65,7 +130,7 @@ export class UIController {
 
             // Manual input formatting (YYYY-MM-DD)
             // 手动输入格式化（YYYY-MM-DD）
-            displayInput.addEventListener('input', (e) => {
+            this._addDateInputListener(displayInput, 'input', (e) => {
                 const input = e.target;
                 const cursorPos = input.selectionStart;
                 const oldValue = input.value;
@@ -132,14 +197,14 @@ export class UIController {
             });
 
             // Validate on blur / 失焦时验证
-            displayInput.addEventListener('blur', () => {
+            this._addDateInputListener(displayInput, 'blur', () => {
                 this._validateSingleDate(displayInput, nativeInput);
                 this._validateDateRange();
             });
 
             // Native picker change syncs to display
             // 原生选择器变更同步到显示输入
-            nativeInput.addEventListener('change', () => {
+            this._addDateInputListener(nativeInput, 'change', () => {
                 if (nativeInput.value) {
                     displayInput.value = nativeInput.value;
                     displayInput.classList.remove('date-error');
@@ -151,7 +216,7 @@ export class UIController {
             // Click on picker button opens native date picker
             // 点击选择器按钮打开原生日期选择器
             if (pickerBtn) {
-                pickerBtn.addEventListener('click', (e) => {
+                this._addDateInputListener(pickerBtn, 'click', (e) => {
                     e.preventDefault();
                     nativeInput.showPicker?.() || nativeInput.click();
                 });
@@ -283,6 +348,7 @@ export class UIController {
      * 设置所有事件监听器
      */
     setupEventListeners() {
+        this._cleanupUiListeners();
         this._setupSearchEvents();
         this._setupDrawingEvents();
         this._setupNavigationEvents();
@@ -293,9 +359,11 @@ export class UIController {
     }
 
     _setupSearchEvents() {
-        document.getElementById('search-btn').addEventListener('click', () => this.performSearch());
+        const searchBtn = document.getElementById('search-btn');
+        this._addUiListener(searchBtn, 'click', () => this.performSearch());
         
-        document.getElementById('provider').addEventListener('change', (e) => {
+        const providerSel = document.getElementById('provider');
+        this._addUiListener(providerSel, 'change', (e) => {
             this.searchManager.changeProvider(e.target.value);
             this.collectionPicker.populateLegacySelect(e.target.value);
             this.collectionPicker.reset();
@@ -310,7 +378,7 @@ export class UIController {
     _setupDrawingEvents() {
         const drawBboxBtn = document.getElementById('draw-bbox');
         if (drawBboxBtn) {
-            drawBboxBtn.addEventListener('click', () => {
+            this._addUiListener(drawBboxBtn, 'click', () => {
                 const fields = ['bbox-west', 'bbox-south', 'bbox-east', 'bbox-north'];
                 const values = fields.map(id => document.getElementById(id).value);
 
@@ -323,58 +391,63 @@ export class UIController {
             });
         }
 
-        document.getElementById('draw-polygon').addEventListener('click', () => {
+        const drawPolygonBtn = document.getElementById('draw-polygon');
+        this._addUiListener(drawPolygonBtn, 'click', () => {
             this.drawingManager.startDrawing('Polygon', (bbox) => this._updateBboxInputs(bbox));
             this._updateToolbarButtons('draw-polygon');
         });
 
-        document.getElementById('draw-rectangle').addEventListener('click', () => {
+        const drawRectangleBtn = document.getElementById('draw-rectangle');
+        this._addUiListener(drawRectangleBtn, 'click', () => {
             this.drawingManager.startDrawing('Box', (bbox) => this._updateBboxInputs(bbox));
             this._updateToolbarButtons('draw-rectangle');
         });
 
-        document.getElementById('clear-drawing').addEventListener('click', () => {
+        const clearDrawingBtn = document.getElementById('clear-drawing');
+        this._addUiListener(clearDrawingBtn, 'click', () => {
             this.drawingManager.clearDrawing();
             this._clearBboxInputs();
         });
 
-        document.getElementById('toggle-drawing-tools').addEventListener('click', () => {
+        const toggleToolsBtn = document.getElementById('toggle-drawing-tools');
+        this._addUiListener(toggleToolsBtn, 'click', () => {
             this._toggleDrawingTools();
         });
     }
 
     _setupNavigationEvents() {
-        document.getElementById('zoom-in').addEventListener('click', () => this.mapManager.zoomIn());
-        document.getElementById('zoom-out').addEventListener('click', () => this.mapManager.zoomOut());
-        document.getElementById('reset-view').addEventListener('click', () => this.mapManager.resetView());
+        this._addUiListener(document.getElementById('zoom-in'), 'click', () => this.mapManager.zoomIn());
+        this._addUiListener(document.getElementById('zoom-out'), 'click', () => this.mapManager.zoomOut());
+        this._addUiListener(document.getElementById('reset-view'), 'click', () => this.mapManager.resetView());
     }
 
     _setupModalEvents() {
         // Item modal close button / 项目弹窗关闭按钮
         const itemModalClose = document.querySelector('#item-modal .close');
         if (itemModalClose) {
-            itemModalClose.addEventListener('click', () => this.closeModal());
+            this._addUiListener(itemModalClose, 'click', () => this.closeModal());
         }
         
         // Item modal backdrop click / 项目弹窗背景点击
-        document.getElementById('item-modal').addEventListener('click', (e) => {
+        const itemModal = document.getElementById('item-modal');
+        this._addUiListener(itemModal, 'click', (e) => {
             if (e.target.id === 'item-modal') this.closeModal();
         });
 
         // Collection modal close button / 集合弹窗关闭按钮
         const colClose = document.querySelector('#collection-modal .close');
-        if (colClose) colClose.addEventListener('click', () => this.collectionPicker.close());
+        if (colClose) this._addUiListener(colClose, 'click', () => this.collectionPicker.close());
         
         // Collection modal backdrop click / 集合弹窗背景点击
         const colModal = document.getElementById('collection-modal');
         if (colModal) {
-            colModal.addEventListener('click', (e) => {
+            this._addUiListener(colModal, 'click', (e) => {
                 if (e.target.id === 'collection-modal') this.collectionPicker.close();
             });
         }
 
         // Global ESC key handler for modals / 弹窗的全局 ESC 键处理
-        document.addEventListener('keydown', (e) => {
+        this._addUiListener(document, 'keydown', (e) => {
             if (e.key === 'Escape') {
                 const itemModal = document.getElementById('item-modal');
                 const colModal = document.getElementById('collection-modal');
@@ -405,7 +478,7 @@ export class UIController {
         const modal = document.getElementById(modalId);
         if (!modal) return;
 
-        modal.addEventListener('keydown', (e) => {
+        this._addUiListener(modal, 'keydown', (e) => {
             if (e.key !== 'Tab' || !modal.classList.contains('show')) return;
 
             const focusableElements = modal.querySelectorAll(
@@ -435,8 +508,9 @@ export class UIController {
 
     _setupMapEvents() {
         const map = this.mapManager.getMap();
-        map.on('pointermove', (evt) => this._handleMapPointerMove(evt));
-        map.on('singleclick', (evt) => this._handleMapSingleClick(evt));
+        if (!map) return;
+        this._mapEventKeys.push(map.on('pointermove', (evt) => this._handleMapPointerMove(evt)));
+        this._mapEventKeys.push(map.on('singleclick', (evt) => this._handleMapSingleClick(evt)));
     }
 
     /**
@@ -469,14 +543,14 @@ export class UIController {
     _setupBasemapEvents() {
         const basemapSel = document.getElementById('basemap-select');
         if (basemapSel) {
-            basemapSel.addEventListener('change', (e) => this.mapManager.setBasemap(e.target.value));
+            this._addUiListener(basemapSel, 'change', (e) => this.mapManager.setBasemap(e.target.value));
         }
     }
 
     _setupCollectionPickerEvents() {
         const openPickerBtn = document.getElementById('open-collection-picker');
         if (openPickerBtn) {
-            openPickerBtn.addEventListener('click', () => {
+            this._addUiListener(openPickerBtn, 'click', () => {
                 const provider = document.getElementById('provider')?.value || 'planetary-computer';
                 this.collectionPicker.open(provider);
             });
@@ -682,7 +756,7 @@ export class UIController {
         thumbUrl = resolveAssetHref(thumbUrl);
 
         let detailsHTML = `
-            <div class="item-summary">
+            <div class="item-summary${thumbUrl ? '' : ' no-thumb'}">
                 ${thumbUrl ? `<div class="thumb"><img src="${escapeHtml(thumbUrl)}" alt="Thumbnail" onerror="this.parentElement.style.display='none'"/></div>` : ''}
                 <div class="summary-meta">
                     <div class="id-line" title="${escapeHtml(item.id)}">${escapeHtml(item.id)}</div>
@@ -996,12 +1070,12 @@ export class UIController {
     _openDownloadDialog(item) {
         const provider = document.getElementById('provider')?.value || 'planetary-computer';
         const candidates = choosePrimaryAssets(item);
-        
-        // Check if this is a Sentinel-1 item
-        // 检查是否为 Sentinel-1 项目
-        const isSentinel1 = isItemSentinel1(item);
-        
-        if (!candidates.length && !isSentinel1) {
+
+        // Check if this is a Copernicus Data Space provider (supports one-click ZIP download)
+        // 检查是否为 Copernicus Data Space 提供商（支持一键 ZIP 下载）
+        const isCopernicus = isCopernicusProvider(provider);
+
+        if (!candidates.length && !isCopernicus) {
             alert('No downloadable assets found for this item.');
             return;
         }
@@ -1031,18 +1105,18 @@ export class UIController {
             `;
         }).join('');
 
-        // Different dialog content for Sentinel-1 vs other datasets
-        // Sentinel-1 与其他数据集使用不同的对话框内容
-        if (isSentinel1) {
-            // Simplified dialog for Sentinel-1 (only Full ZIP available)
-            // Sentinel-1 简化对话框（只有 Full ZIP 可用）
+        // Different dialog content for Copernicus vs other providers
+        // Copernicus 与其他提供商使用不同的对话框内容
+        if (isCopernicus) {
+            // Simplified dialog for Copernicus Data Space (one-click ZIP download)
+            // Copernicus Data Space 简化对话框（一键 ZIP 下载）
             dialog.innerHTML = `
                 <div class="dialog-header">
-                    <h3 id="download-dialog-title">Download Sentinel-1 Product</h3>
+                    <h3 id="download-dialog-title">Download Copernicus Product</h3>
                 </div>
                 <div class="sentinel1-download-info">
-                    <p>Download the complete Sentinel-1 product as a ZIP file from Copernicus Data Space.</p>
-                    <p class="size-hint">Typical size: 1-8 GB</p>
+                    <p>Download the complete product as a ZIP file from Copernicus Data Space.</p>
+                    <p class="size-hint">Product size varies by type (typically 100 MB - 8 GB)</p>
                 </div>
                 <div id="zip-status" class="zip-status" aria-live="polite"></div>
                 <div class="zip-progress-row hidden" id="zip-progress-row">
@@ -1050,7 +1124,7 @@ export class UIController {
                     <span class="progress-text" id="zip-progress-text">0%</span>
                 </div>
                 <div class="dialog-actions sentinel1-actions-simple">
-                    <button class="download-btn" id="download-zip" title="Download full Sentinel-1 product from Copernicus">
+                    <button class="download-btn" id="download-zip" title="Download full product from Copernicus Data Space">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                         Download ZIP
                     </button>
@@ -1059,8 +1133,8 @@ export class UIController {
                 </div>
             `;
         } else {
-            // Full dialog for other datasets
-            // 其他数据集的完整对话框
+            // Full dialog for other providers
+            // 其他提供商的完整对话框
             dialog.innerHTML = `
                 <div class="dialog-header">
                     <h3 id="download-dialog-title">Select assets to download</h3>
@@ -1070,20 +1144,11 @@ export class UIController {
                     </div>
                 </div>
                 <div class="asset-list" role="list" aria-label="Downloadable assets">${assetRows}</div>
-                <div id="zip-status" class="zip-status" aria-live="polite"></div>
-                <div class="zip-progress-row hidden" id="zip-progress-row">
-                    <div class="progress-bar"><div class="bar" id="zip-progress-bar"></div></div>
-                    <span class="progress-text" id="zip-progress-text">0%</span>
-                </div>
                 <div class="dialog-actions">
                     <div class="action-row-left">
                         ${supportsDirPicker ? '<button class="download-btn" id="pick-folder">Select Folder</button>' : '<span style="color:var(--text-secondary); font-size:0.85rem;">Folder selection not supported.</span>'}
                     </div>
                     <div class="action-row-right">
-                        <button class="download-btn" id="download-zip" title="Download all selected assets as a single ZIP file">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                            ZIP
-                        </button>
                         <button class="download-btn" id="start-download">Start</button>
                         <button class="download-btn" id="stop-download">Stop</button>
                         <button class="download-btn secondary" id="close-download">Close</button>
@@ -1095,14 +1160,14 @@ export class UIController {
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
 
-        this._setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, isSentinel1);
+        this._setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, isCopernicus);
     }
 
     /**
      * Setup download dialog events
      * 设置下载对话框事件
      */
-    _setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, isSentinel1) {
+    _setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, isCopernicus) {
         const dialogState = {
             directoryHandle: null,
             dlAbortController: null,
@@ -1128,10 +1193,10 @@ export class UIController {
 
         const setButtonsEnabled = (enabled) => {
             const startBtn = dialog.querySelector('#start-download');
-            const zipBtn = dialog.querySelector('#download-zip');
+            const zipBtn = dialog.querySelector('#download-zip'); // Only exists for Sentinel-1
             const stopBtn = dialog.querySelector('#stop-download');
             if (startBtn) startBtn.disabled = !enabled;
-            if (zipBtn) zipBtn.disabled = !enabled;
+            if (zipBtn) zipBtn.disabled = !enabled; // Sentinel-1 only
             if (stopBtn) stopBtn.disabled = enabled;
             dialogState.isDownloading = !enabled;
         };
@@ -1208,10 +1273,10 @@ export class UIController {
         const zipBtn = dialog.querySelector('#download-zip');
         stopBtn.disabled = true;
 
-        // Sentinel-1 Full Product Download Handler / Sentinel-1 完整产品下载处理
-        const doSentinel1Download = async () => {
+        // Copernicus Full Product Download Handler / Copernicus 完整产品下载处理
+        const doCopernicusDownload = async () => {
             // Confirm large download / 确认大文件下载
-            if (!confirm('Sentinel-1 products are typically 1-8 GB in size.\nThis download may take a while.\n\nContinue?')) {
+            if (!confirm('Copernicus products can be large (100 MB - 8 GB).\nThis download may take a while.\n\nContinue?')) {
                 return;
             }
 
@@ -1221,7 +1286,7 @@ export class UIController {
             dialogState.dlAbortController = new AbortController();
 
             try {
-                const result = await downloadSentinel1Product(item, {
+                const result = await downloadCopernicusProduct(item, {
                     onProgress: (p) => {
                         if (p.percent != null) {
                             updateZipProgress(p.percent, true);
@@ -1251,7 +1316,7 @@ export class UIController {
                     updateZipStatus('Download stopped', false);
                 } else {
                     updateZipStatus(`Error: ${e.message}`, true);
-                    console.error('Sentinel-1 download error:', e);
+                    console.error('Copernicus download error:', e);
                 }
                 updateZipProgress(0, false);
             } finally {
@@ -1260,90 +1325,13 @@ export class UIController {
             }
         };
 
-        // ZIP Download Handler / ZIP 下载处理
-        const doZipDownload = async (skipSizeWarning = false) => {
-            const selections = getSelectedSelections();
-            if (!selections.length) {
-                alert('Please select at least one asset.');
-                return;
-            }
-
-            setButtonsEnabled(false);
-            updateZipStatus('');
-            updateZipProgress(0, false);
-            dialogState.dlAbortController = new AbortController();
-
-            const onProgress = (assetKey, p) => {
-                if (assetKey === '__zip__') {
-                    // ZIP generation progress / ZIP 生成进度
-                    updateZipProgress(p.percent || 0, true);
-                } else {
-                    this._updateDownloadProgress(dialog, dialogState, assetKey, p);
-                }
-            };
-
-            const onStatus = (message) => {
-                updateZipStatus(message);
-            };
-
-            try {
-                const result = await downloadAssetsAsZip(selections, {
-                    provider,
-                    item,
-                    onProgress,
-                    onStatus,
-                    abortSignal: dialogState.dlAbortController.signal,
-                    skipSizeWarning
-                });
-
-                if (result.needsConfirmation) {
-                    // Large file warning - ask user to confirm / 大文件警告 - 请求用户确认
-                    setButtonsEnabled(true);
-                    const sizeStr = formatBytes(result.estimatedSize || 0);
-                    updateZipStatus(`Estimated size: ${sizeStr}`);
-                    if (confirm(`Estimated download size is ${sizeStr}.\nLarge files may take a while and use significant memory.\n\nContinue?`)) {
-                        await doZipDownload(true);
-                    }
-                    return;
-                }
-
-                if (result.success) {
-                    const sizeStr = formatBytes(result.totalSize || 0);
-                    updateZipStatus(`✓ ZIP downloaded: ${result.fileCount} files, ${sizeStr}`);
-                    updateZipProgress(100, true);
-                    if (result.error) {
-                        // Partial success with warnings / 部分成功，有警告
-                        alert(`ZIP download completed with warnings:\n${result.error}`);
-                    }
-                } else {
-                    updateZipStatus(`✗ ${result.error}`, true);
-                    updateZipProgress(0, false);
-                    if (result.error && !result.error.includes('cancelled')) {
-                        alert(result.error);
-                    }
-                }
-            } catch (e) {
-                if (e?.name === 'AbortError') {
-                    updateZipStatus('Download cancelled', true);
-                } else {
-                    updateZipStatus(`Error: ${e.message}`, true);
-                    console.error('ZIP download error:', e);
-                }
-            } finally {
-                setButtonsEnabled(true);
-                dialogState.dlAbortController = null;
-            }
-        };
-
-        // ZIP button click handler - use Sentinel-1 download for Sentinel-1 items
-        // ZIP 按钮点击处理 - 对于 Sentinel-1 项目使用 Sentinel-1 下载
-        addTrackedListener(zipBtn, 'click', () => {
-            if (isSentinel1) {
-                doSentinel1Download();
-            } else {
-                doZipDownload(false);
-            }
-        });
+        // ZIP button click handler - for Copernicus Data Space products
+        // ZIP 按钮点击处理 - 用于 Copernicus Data Space 产品
+        if (isCopernicus && zipBtn) {
+            addTrackedListener(zipBtn, 'click', () => {
+                doCopernicusDownload();
+            });
+        }
 
         // Individual Download Handler / 单独下载处理
         addTrackedListener(startBtn, 'click', async () => {
@@ -1354,7 +1342,6 @@ export class UIController {
             }
 
             setButtonsEnabled(false);
-            updateZipStatus('');
             dialogState.progressState.clear();
             dialogState.dlAbortController = new AbortController();
 

@@ -29,6 +29,17 @@ export class DrawingManager {
     }
 
     /**
+     * Dispose drawing interaction and clear references (helps avoid leaks on re-init/HMR)
+     */
+    dispose() {
+        try {
+            this.clearDrawing();
+        } catch {}
+        this.drawInteraction = null;
+        this.mapManager = null;
+    }
+
+    /**
      * Start drawing interaction
      * 开始绘制交互
      * 

@@ -33,3 +33,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.ace-tool/
+
+# Claude settings
+.claude/

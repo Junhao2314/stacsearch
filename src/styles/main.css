@@ -1177,6 +1177,11 @@ body {
     margin-bottom: 1.25rem;
 }
 
+/* When no thumbnail is available, use single column layout / 无缩略图时使用单列布局 */
+.item-summary.no-thumb {
+    grid-template-columns: 1fr;
+}
+
 .item-summary .thumb img {
     width: 100%;
     height: auto;

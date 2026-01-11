@@ -18,6 +18,7 @@ import { Style, Stroke, Fill } from 'ol/style';
 import Feature from 'ol/Feature';
 import Overlay from 'ol/Overlay';
 import { getPointResolution } from 'ol/proj';
+import { unByKey } from 'ol/Observable';
 
 import { createGoogleSatelliteSource, createGoogleHybridSource, createGoogleMapsSource } from '../basemaps/google.js';
 import { createEsriWorldImageryLayer, createEsriWorldLabelsLayer } from '../basemaps/esri.js';
@@ -55,6 +56,9 @@ export class MapManager {
         
         /** @type {HTMLElement|null} */
         this.scaleBarEl = null;
+
+        /** @type {any[]} OpenLayers events keys for cleanup */
+        this._eventKeys = [];
     }
 
     /**
@@ -223,11 +227,42 @@ export class MapManager {
         mapContainer.appendChild(this.scaleBarEl);
         
         // Update scale bar on view change / 视图变化时更新比例尺
-        this.map.getView().on('change:resolution', () => this._updateScaleBar());
-        this.map.getView().on('change:center', () => this._updateScaleBar());
+        this._eventKeys.push(this.map.getView().on('change:resolution', () => this._updateScaleBar()));
+        this._eventKeys.push(this.map.getView().on('change:center', () => this._updateScaleBar()));
         
         // Initial update / 初始更新
         this._updateScaleBar();
+    }
+
+    /**
+     * Dispose map resources and event listeners (helps avoid leaks on re-init/HMR)
+     */
+    dispose() {
+        try {
+            if (this._eventKeys.length) unByKey(this._eventKeys);
+        } catch {}
+        this._eventKeys = [];
+
+        try { this.bboxLayer?.getSource()?.clear(); } catch {}
+        try { this.itemsLayer?.getSource()?.clear(); } catch {}
+        try { this.highlightLayer?.getSource()?.clear(); } catch {}
+
+        try { this.map?.removeOverlay?.(this.hoverOverlay); } catch {}
+        try { this.hoverLabelEl?.remove?.(); } catch {}
+        try { this.scaleBarEl?.remove?.(); } catch {}
+
+        try { this.map?.setTarget?.(null); } catch {}
+        try { this.map?.dispose?.(); } catch {}
+
+        this.map = null;
+        this.bboxLayer = null;
+        this.itemsLayer = null;
+        this.highlightLayer = null;
+        this.basemapRegistry = {};
+        this.hoverOverlay = null;
+        this.hoverLabelEl = null;
+        this.lastHoverFeatureId = null;
+        this.scaleBarEl = null;
     }
 
     /**

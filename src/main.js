@@ -32,6 +32,7 @@ let searchManager;
 let drawingManager;
 let collectionPicker;
 let uiController;
+let _appCleanupFns = [];
 /**
  * Get stored theme from localStorage
  * 从 localStorage 获取存储的主题
@@ -198,7 +199,7 @@ async function toggleTheme(event) {
 function setupSystemThemeListener() {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
     
-    prefersDark.addEventListener('change', (e) => {
+    const handler = (e) => {
         // Only follow system preference if user hasn't manually selected a theme
         // 只有在用户未手动选择主题时才跟随系统偏好
         if (!hasUserSelectedTheme()) {
@@ -206,22 +207,53 @@ function setupSystemThemeListener() {
             applyTheme(systemTheme);
             setStoredTheme(systemTheme, false); // Not user-selected / 非用户选择
         }
-    });
+    };
+
+    prefersDark.addEventListener('change', handler);
+    return () => {
+        try { prefersDark.removeEventListener('change', handler); } catch {}
+    };
+}
+
+/**
+ * Dispose app resources (helps avoid leaks on re-init/HMR)
+ */
+function disposeApp() {
+    const fns = _appCleanupFns.splice(0, _appCleanupFns.length);
+    for (const fn of fns) {
+        try { fn(); } catch {}
+    }
+
+    try { uiController?.dispose?.(); } catch {}
+    try { drawingManager?.dispose?.(); } catch {}
+    try { mapManager?.dispose?.(); } catch {}
+
+    mapManager = null;
+    searchManager = null;
+    drawingManager = null;
+    collectionPicker = null;
+    uiController = null;
 }
 
 /**
  * Initialize the application
  * 初始化应用程序
  */
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
+    disposeApp();
+
     // Initialize theme / 初始化主题
     initializeTheme();
-    setupSystemThemeListener();
-    
+    const cleanupSystemThemeListener = setupSystemThemeListener();
+    if (cleanupSystemThemeListener) _appCleanupFns.push(cleanupSystemThemeListener);
+
     // Setup theme toggle button / 设置主题切换按钮
     const themeToggleBtn = document.getElementById('theme-toggle');
     if (themeToggleBtn) {
         themeToggleBtn.addEventListener('click', toggleTheme);
+        _appCleanupFns.push(() => {
+            try { themeToggleBtn.removeEventListener('click', toggleTheme); } catch {}
+        });
     }
 
     // Initialize managers / 初始化管理器
@@ -231,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     searchManager = new SearchManager();
     drawingManager = new DrawingManager(mapManager);
     collectionPicker = new CollectionPicker();
-    
+
     uiController = new UIController(mapManager, searchManager, drawingManager, collectionPicker);
 
     // Initialize UI / 初始化 UI
@@ -242,4 +274,16 @@ document.addEventListener('DOMContentLoaded', () => {
     collectionPicker.initialize();
     const currentProvider = document.getElementById('provider')?.value || 'planetary-computer';
     collectionPicker.populateLegacySelect(currentProvider);
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp, { once: true });
+} else {
+    initApp();
+}
+
+// Vite HMR: ensure old instances are disposed to avoid accumulating listeners/maps
+if (import.meta?.hot) {
+    import.meta.hot.dispose(disposeApp);
+    import.meta.hot.accept();
+}

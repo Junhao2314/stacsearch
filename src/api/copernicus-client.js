@@ -122,6 +122,17 @@ export function isSentinel1Collection(collectionId) {
 }
 
 /**
+ * Check if provider is Copernicus Data Space
+ * 检查是否为 Copernicus Data Space 提供商
+ *
+ * @param {string} provider - Provider key / 提供商键名
+ * @returns {boolean} Whether it's Copernicus Data Space / 是否为 Copernicus Data Space
+ */
+export function isCopernicusProvider(provider) {
+    return provider === 'copernicus-dataspace';
+}
+
+/**
  * Extract Copernicus product ID from STAC item
  * 从 STAC 项目中提取 Copernicus 产品 ID
  * 
@@ -200,33 +211,47 @@ export async function searchCopernicusProductByName(productName) {
 /**
  * Get product name from STAC item for Copernicus search
  * 从 STAC 项目获取用于 Copernicus 搜索的产品名称
- * 
+ *
+ * Supports all Sentinel products:
+ * 支持所有 Sentinel 产品：
+ * - Sentinel-1: S1A_IW_GRDH_..., S1B_...
+ * - Sentinel-2: S2A_MSIL2A_..., S2B_...
+ * - Sentinel-3: S3A_OL_1_EFR_..., S3B_...
+ * - Sentinel-5P: S5P_OFFL_L2_...
+ *
  * @param {STACItem} item - STAC item / STAC 项目
  * @returns {string|null} Product name or null / 产品名称或 null
  */
 export function getProductNameFromItem(item) {
     if (!item) return null;
-    
-    // For Sentinel-1, the product name typically follows a pattern like:
-    // S1A_IW_GRDH_1SDV_20231015T...
-    // 对于 Sentinel-1，产品名称通常遵循如下模式：
-    // S1A_IW_GRDH_1SDV_20231015T...
-    
+
     const props = item.properties || {};
-    
-    // Check for explicit product name
-    // 检查显式产品名称
+
+    // Check for explicit product name properties
+    // 检查显式产品名称属性
     if (props['s1:product_name']) return props['s1:product_name'];
+    if (props['s2:product_name']) return props['s2:product_name'];
+    if (props['s3:product_name']) return props['s3:product_name'];
+    if (props['s5p:product_name']) return props['s5p:product_name'];
     if (props['product_name']) return props['product_name'];
-    
-    // The item ID might be the product name (without .SAFE extension)
-    // 项目 ID 可能是产品名称（不带 .SAFE 扩展名）
-    if (item.id && item.id.startsWith('S1')) {
-        // Add .SAFE extension if not present
-        // 如果没有 .SAFE 扩展名则添加
-        return item.id.endsWith('.SAFE') ? item.id : `${item.id}.SAFE`;
+
+    // Check if item ID matches Sentinel product name pattern
+    // 检查 item ID 是否匹配 Sentinel 产品名称模式
+    // Patterns: S1A_, S1B_, S2A_, S2B_, S3A_, S3B_, S5P_
+    if (item.id && /^S[1-5][ABP]?_/.test(item.id)) {
+        // Determine appropriate extension based on product type
+        // 根据产品类型确定适当的扩展名
+        // Sentinel-3 uses .SEN3, Sentinel-5P uses .nc, others use .SAFE
+        const isSentinel3 = item.id.startsWith('S3');
+        const isSentinel5P = item.id.startsWith('S5P');
+        const expectedExt = isSentinel3 ? '.SEN3' : (isSentinel5P ? '.nc' : '.SAFE');
+
+        if (item.id.endsWith('.SAFE') || item.id.endsWith('.SEN3') || item.id.endsWith('.nc') || item.id.endsWith('.zip')) {
+            return item.id;
+        }
+        return `${item.id}${expectedExt}`;
     }
-    
+
     return null;
 }
 
@@ -449,41 +474,60 @@ function formatSize(bytes) {
  * @param {STACItem} item - STAC item / STAC 项目
  * @param {CopernicusDownloadOptions} [options] - Download options / 下载选项
  * @returns {Promise<CopernicusDownloadResult>} Download result / 下载结果
+ * @deprecated Use downloadCopernicusFullProduct instead / 请使用 downloadCopernicusFullProduct 代替
  */
 export async function downloadSentinel1FullProduct(item, options = {}) {
+    return await downloadCopernicusFullProduct(item, options);
+}
+
+/**
+ * Download any Copernicus product as ZIP
+ * 下载任意 Copernicus 产品 ZIP 文件
+ *
+ * This function handles the logic of finding the product in Copernicus Data Space
+ * and downloading it as a complete ZIP file using OAuth2 authentication.
+ * Supports all Sentinel products (1, 2, 3, 5P).
+ * 此函数处理在 Copernicus Data Space 中查找产品并使用 OAuth2 认证下载完整 ZIP 文件的逻辑。
+ * 支持所有 Sentinel 产品（1、2、3、5P）。
+ *
+ * @param {STACItem} item - STAC item / STAC 项目
+ * @param {CopernicusDownloadOptions} [options] - Download options / 下载选项
+ * @returns {Promise<CopernicusDownloadResult>} Download result / 下载结果
+ */
+export async function downloadCopernicusFullProduct(item, options = {}) {
     const { onStatus } = options;
-    
+
     if (!item) {
         return { success: false, error: 'Item is required' };
     }
-    
+
     // Try to get product ID directly
     // 尝试直接获取产品 ID
     let productId = extractCopernicusProductId(item);
-    
+
     if (!productId) {
         // Try to search by product name
         // 尝试通过产品名称搜索
         const productName = getProductNameFromItem(item);
-        
+
         if (productName) {
             onStatus?.(`Searching for product: ${productName}...`);
             productId = await searchCopernicusProductByName(productName);
         }
     }
-    
+
     if (!productId) {
-        return { 
-            success: false, 
-            error: 'Could not find Copernicus product ID. The product may not be available in Copernicus Data Space.' 
+        return {
+            success: false,
+            error: 'Could not find Copernicus product ID. The product may not be available in Copernicus Data Space.'
         };
     }
-    
+
     // Generate filename from item
     // 从项目生成文件名
     const productName = getProductNameFromItem(item) || item.id;
     const filename = productName.endsWith('.zip') ? productName : `${productName}.zip`;
-    
+
     return await downloadCopernicusProduct(productId, filename, options);
 }
 
