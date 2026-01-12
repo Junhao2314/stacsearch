@@ -6,8 +6,8 @@
  * 应用程序中使用的通用工具函数
  */
 
-/** @typedef {import('../types.js').PaginateOptions} PaginateOptions */
-/** @typedef {import('../types.js').PaginateResult} PaginateResult */
+/** @typedef {import('../types/index.js').PaginateOptions} PaginateOptions */
+/** @typedef {import('../types/index.js').PaginateResult} PaginateResult */
 
 /**
  * Throttle function - limits function execution to once per specified time interval
@@ -83,6 +83,19 @@ export function coalesce(...args) {
 }
 
 /**
+ * HTML special character escape map
+ * HTML 特殊字符转义映射
+ * @type {Object<string, string>}
+ */
+const HTML_ESCAPE_MAP = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+};
+
+/**
  * Escape HTML special characters
  * 转义 HTML 特殊字符
  * 
@@ -91,15 +104,55 @@ export function coalesce(...args) {
  */
 export function escapeHtml(str) {
     try {
-        return String(str).replace(/[&<>"]/g, s => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;'
-        }[s]));
+        return String(str).replace(/[&<>"']/g, s => HTML_ESCAPE_MAP[s]);
     } catch {
         return String(str || '');
     }
+}
+
+/**
+ * Date format regex pattern (YYYY-MM-DD)
+ * 日期格式正则表达式（YYYY-MM-DD）
+ */
+const DATE_FORMAT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Check if a date string is in valid YYYY-MM-DD format
+ * 检查日期字符串是否为有效的 YYYY-MM-DD 格式
+ * 
+ * @param {string} dateStr - Date string to check / 要检查的日期字符串
+ * @returns {boolean} Whether the format is valid / 格式是否有效
+ */
+export function isValidDateFormat(dateStr) {
+    return DATE_FORMAT_REGEX.test(dateStr);
+}
+
+/**
+ * Parse and validate a date string (YYYY-MM-DD)
+ * 解析并验证日期字符串（YYYY-MM-DD）
+ * 
+ * @param {string} dateStr - Date string to validate / 要验证的日期字符串
+ * @returns {{valid: boolean, year?: number, month?: number, day?: number, date?: Date}} Validation result / 验证结果
+ */
+export function parseAndValidateDate(dateStr) {
+    if (!dateStr || !isValidDateFormat(dateStr)) {
+        return { valid: false };
+    }
+    
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    
+    // Check if the date is valid by comparing components
+    // 通过比较各部分检查日期是否有效
+    const isValid = date.getFullYear() === year &&
+                    date.getMonth() === month - 1 &&
+                    date.getDate() === day;
+    
+    if (!isValid) {
+        return { valid: false };
+    }
+    
+    return { valid: true, year, month, day, date };
 }
 
 /**

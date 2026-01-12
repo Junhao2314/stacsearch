@@ -20,7 +20,9 @@ import {
     isCopernicusProvider,
     hasCopernicusCredentials,
     downloadSentinel1FullProduct,
-    downloadCopernicusFullProduct
+    downloadCopernicusFullProduct,
+    extractCopernicusProductId,
+    getProductNameFromItem
 } from './copernicus-client.js';
 
 const PC_SIGN_ENDPOINT = DOWNLOAD_CONFIG.pcSignEndpoint;
@@ -600,6 +602,36 @@ export function isCopernicusDownloadAvailable() {
 }
 
 /**
+ * Check if a Copernicus full product ZIP download is likely available for this item
+ * 检查该项目是否可能支持 Copernicus 完整产品 ZIP 下载
+ *
+ * Heuristics (no extra network calls):
+ * 启发式判断（不额外发起网络请求）：
+ * 1. Provider must be Copernicus Data Space
+ *    提供商必须为 Copernicus Data Space
+ * 2. Item has a Copernicus product UUID or a recognizable Sentinel product name
+ *    项目具有 Copernicus 产品 UUID 或可识别的 Sentinel 产品名称
+ *
+ * @param {STACItem} item - STAC item / STAC 项目
+ * @param {string} provider - Provider key / 提供商键名
+ * @returns {boolean} Whether full product ZIP is a good candidate / 是否适合作为完整 ZIP 下载候选
+ */
+export function canDownloadCopernicusFullProduct(item, provider) {
+  if (!isCopernicusProvider(provider)) return false;
+  if (!item) return false;
+
+  // Direct product ID hint (UUID or copernicus:product_id)
+  // 直接的产品 ID 线索（UUID 或 copernicus:product_id）
+  if (extractCopernicusProductId(item)) return true;
+
+  // Sentinel product name hint (S1/S2/S3/S5P patterns)
+  // Sentinel 产品名称线索（S1/S2/S3/S5P 模式）
+  if (getProductNameFromItem(item)) return true;
+
+  return false;
+}
+
+/** 
  * Download any Copernicus product as ZIP
  * 下载任意 Copernicus 产品 ZIP 文件
  *

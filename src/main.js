@@ -225,6 +225,7 @@ function disposeApp() {
     }
 
     try { uiController?.dispose?.(); } catch {}
+    try { collectionPicker?.dispose?.(); } catch {}
     try { drawingManager?.dispose?.(); } catch {}
     try { mapManager?.dispose?.(); } catch {}
 

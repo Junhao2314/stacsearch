@@ -10,4 +10,4 @@ export { SearchManager } from './SearchManager.js';
 export { DrawingManager } from './DrawingManager.js';
 export { CollectionPicker } from './CollectionPicker.js';
 export { UIController } from './UIController.js';
-export { coalesce, escapeHtml, paginate } from '../utils/index.js';
+export { coalesce, escapeHtml, paginate, throttle, debounce, isValidDateFormat, parseAndValidateDate } from '../utils/index.js';

@@ -36,6 +36,8 @@ export class CollectionPicker {
         this._searchInputBound = false;
         /** @type {number} */
         this._detailRequestId = 0;
+        /** @type {Function|null} */
+        this._searchInputHandler = null;
     }
 
     /**
@@ -129,7 +131,11 @@ export class CollectionPicker {
                     this._applyFilter(searchInput.value);
                     this._renderPage(this._currentProvider);
                 }, 200);
-                searchInput.oninput = this._debouncedSearch;
+                
+                // Use addEventListener instead of direct assignment for proper cleanup
+                // 使用 addEventListener 而非直接赋值，以便正确清理
+                this._searchInputHandler = () => this._debouncedSearch();
+                searchInput.addEventListener('input', this._searchInputHandler);
                 this._searchInputBound = true;
             }
         }
@@ -149,6 +155,28 @@ export class CollectionPicker {
             this._lastFocusedElement.focus();
             this._lastFocusedElement = null;
         }
+    }
+
+    /**
+     * Dispose resources and event listeners
+     * 释放资源和事件监听器
+     */
+    dispose() {
+        // Remove search input event listener
+        // 移除搜索输入事件监听器
+        if (this._searchInputHandler) {
+            const searchInput = document.getElementById('collection-search');
+            if (searchInput) {
+                searchInput.removeEventListener('input', this._searchInputHandler);
+            }
+            this._searchInputHandler = null;
+            this._searchInputBound = false;
+        }
+        
+        this._debouncedSearch = null;
+        this._lastFocusedElement = null;
+        this.allCollections = [];
+        this.filteredCollections = [];
     }
 
     /**

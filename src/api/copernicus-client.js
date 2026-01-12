@@ -24,15 +24,43 @@ import { DOWNLOAD_CONFIG, STAC_PROVIDERS } from '../config/index.js';
 let cachedToken = null;
 
 /**
+ * Get Copernicus credentials at runtime
+ * 在运行时获取 Copernicus 凭证
+ *
+ * Priority / 优先级：
+ * 1. window.COPERNICUS_USERNAME / window.COPERNICUS_PASSWORD
+ * 2. DOWNLOAD_CONFIG.copernicusUsername / DOWNLOAD_CONFIG.copernicusPassword
+ *
+ * @returns {{ username: string, password: string }} Credentials / 凭证
+ */
+function getRuntimeCopernicusCredentials() {
+    /** @type {any} */
+    const win = (typeof window !== 'undefined') ? window : undefined;
+
+    const username =
+        (win && typeof win.COPERNICUS_USERNAME === 'string' && win.COPERNICUS_USERNAME) ||
+        DOWNLOAD_CONFIG.copernicusUsername ||
+        '';
+
+    const password =
+        (win && typeof win.COPERNICUS_PASSWORD === 'string' && win.COPERNICUS_PASSWORD) ||
+        DOWNLOAD_CONFIG.copernicusPassword ||
+        '';
+
+    return { username, password };
+}
+
+/**
  * Check if Copernicus credentials are configured
  * 检查 Copernicus 凭证是否已配置
  * 
  * @returns {boolean} Whether credentials are available / 凭证是否可用
  */
 export function hasCopernicusCredentials() {
-    const hasCredentials = !!(DOWNLOAD_CONFIG.copernicusUsername && DOWNLOAD_CONFIG.copernicusPassword);
+    const { username, password } = getRuntimeCopernicusCredentials();
+    const hasCredentials = !!(username && password);
     console.debug('[Copernicus] Credentials configured:', hasCredentials, 
-        'Username:', DOWNLOAD_CONFIG.copernicusUsername ? '***' + DOWNLOAD_CONFIG.copernicusUsername.slice(-4) : '(empty)');
+        'Username:', username ? '***' + username.slice(-4) : '(empty)');
     return hasCredentials;
 }
 
@@ -54,20 +82,21 @@ export async function getCopernicusToken() {
     }
 
     if (!hasCopernicusCredentials()) {
-        throw new Error('Copernicus credentials not configured. Please set window.COPERNICUS_USERNAME and window.COPERNICUS_PASSWORD in browser console.');
+        throw new Error('Copernicus credentials not configured. Please set window.COPERNICUS_USERNAME and window.COPERNICUS_PASSWORD at runtime (e.g., via browser console or the download settings dialog).');
     }
 
     const tokenUrl = STAC_PROVIDERS['copernicus-dataspace'].tokenUrl;
+    const { username, password } = getRuntimeCopernicusCredentials();
     
     // URLSearchParams automatically handles URL encoding for special characters
     // URLSearchParams 会自动处理特殊字符的 URL 编码
     const formData = new URLSearchParams();
     formData.append('client_id', 'cdse-public');
     formData.append('grant_type', 'password');
-    formData.append('username', DOWNLOAD_CONFIG.copernicusUsername);
-    formData.append('password', DOWNLOAD_CONFIG.copernicusPassword);
+    formData.append('username', username);
+    formData.append('password', password);
 
-    console.debug('[Copernicus] Attempting authentication for user:', DOWNLOAD_CONFIG.copernicusUsername);
+    console.debug('[Copernicus] Attempting authentication for user:', username);
     console.debug('[Copernicus] Token URL:', tokenUrl);
 
     let response;
@@ -526,7 +555,43 @@ export async function downloadCopernicusFullProduct(item, options = {}) {
     // Generate filename from item
     // 从项目生成文件名
     const productName = getProductNameFromItem(item) || item.id;
-    const filename = productName.endsWith('.zip') ? productName : `${productName}.zip`;
+
+    /**
+     * Normalize Copernicus download filename based on product type:
+     * 根据产品类型规范化 Copernicus 下载文件名：
+     * - Sentinel-1/2/3 SAFE/SEN3 等多文件产品使用 .zip 扩展名
+     * - Sentinel-5P 等单文件 NetCDF 产品保留 .nc 扩展名
+     * - 已是 .zip 的名称保持不变
+     */
+    const makeZipFilename = (name) => {
+        const lower = String(name).toLowerCase();
+        
+        // Already a ZIP file name – keep as-is
+        // 已经是 ZIP 文件名，直接返回
+        if (lower.endsWith('.zip')) return name;
+
+        // Single-file products – keep original scientific data extension
+        // 单文件科学数据产品，保留原始扩展名
+        const singleFileExts = ['.nc', '.tif', '.tiff', '.h5', '.hdf', '.hdf5'];
+        if (singleFileExts.some(ext => lower.endsWith(ext))) {
+            return name;
+        }
+
+        // SAFE / SEN3 等多文件产品：使用 .zip 扩展名
+        // SAFE / SEN3 multi-file products: normalize to .zip
+        if (lower.endsWith('.safe')) {
+            return name.slice(0, -'.safe'.length) + '.zip';
+        }
+        if (lower.endsWith('.sen3')) {
+            return name.slice(0, -'.sen3'.length) + '.zip';
+        }
+
+        // Other types: default to .zip
+        // 其他类型：默认使用 .zip
+        return `${name}.zip`;
+    };
+
+    const filename = makeZipFilename(productName);
 
     return await downloadCopernicusProduct(productId, filename, options);
 }

@@ -130,6 +130,8 @@ To create an account, register at [https://dataspace.copernicus.eu/](https://dat
 
 Note: For security reasons, Copernicus credentials are only accepted via runtime injection to prevent them from being bundled into static assets.
 
+If credentials are not preconfigured, the Copernicus download dialog also provides a small runtime-only form where you can enter the username and password directly. These values are applied to `window.COPERNICUS_USERNAME` / `window.COPERNICUS_PASSWORD` for the current browser session only and are never persisted to disk.
+
 ### Optional Environment Variables
 
 - `VITE_PC_SUBSCRIPTION_KEY`: Microsoft Planetary Computer subscription key for higher rate limits

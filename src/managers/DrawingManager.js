@@ -6,7 +6,7 @@
  * 负责地图边界框/多边形绘制交互
  */
 
-/** @typedef {import('../types.js').GeoJSONGeometry} GeoJSONGeometry */
+/** @typedef {import('../types/index.js').GeoJSONGeometry} GeoJSONGeometry */
 /** @typedef {import('./MapManager.js').MapManager} MapManager */
 
 import Draw, { createBox } from 'ol/interaction/Draw';

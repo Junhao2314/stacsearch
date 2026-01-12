@@ -15,7 +15,7 @@
 /** @typedef {import('./CollectionPicker.js').CollectionPicker} CollectionPicker */
 
 import { formatItemForDisplay, getItemThumbnail, resolveAssetHref } from '../api/stac-service.js';
-import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets, formatBytes, isItemSentinel1, downloadSentinel1Product, isCopernicusProvider, downloadCopernicusProduct } from '../api/download-clients.js';
+import { signPlanetaryComputerUrl, deriveFilenameFromAsset, downloadAssets, choosePrimaryAssets, formatBytes, canDownloadCopernicusFullProduct, downloadCopernicusProduct, isCopernicusDownloadAvailable } from '../api/download-clients.js';
 import { coalesce, escapeHtml, throttle } from '../utils/index.js';
 import { unByKey } from 'ol/Observable';
 
@@ -1071,11 +1071,11 @@ export class UIController {
         const provider = document.getElementById('provider')?.value || 'planetary-computer';
         const candidates = choosePrimaryAssets(item);
 
-        // Check if this is a Copernicus Data Space provider (supports one-click ZIP download)
-        // 检查是否为 Copernicus Data Space 提供商（支持一键 ZIP 下载）
-        const isCopernicus = isCopernicusProvider(provider);
+        // Check if this item is a good candidate for Copernicus full product download
+        // 检查该项目是否适合作为 Copernicus 完整产品下载候选
+        const hasCopernicusFullZip = canDownloadCopernicusFullProduct(item, provider);
 
-        if (!candidates.length && !isCopernicus) {
+        if (!candidates.length && !hasCopernicusFullZip) {
             alert('No downloadable assets found for this item.');
             return;
         }
@@ -1105,18 +1105,35 @@ export class UIController {
             `;
         }).join('');
 
-        // Different dialog content for Copernicus vs other providers
-        // Copernicus 与其他提供商使用不同的对话框内容
-        if (isCopernicus) {
-            // Simplified dialog for Copernicus Data Space (one-click ZIP download)
-            // Copernicus Data Space 简化对话框（一键 ZIP 下载）
+        // Different dialog content for Copernicus full product vs regular asset downloads
+        // Copernicus 完整产品与普通资源下载使用不同的对话框内容
+        if (hasCopernicusFullZip) {
+            // Simplified dialog for Copernicus full product
+            // Copernicus 完整产品简化对话框
+            // Includes an inline credential configuration section as a runtime-only fallback
+            // 同时包含一个内联凭证配置区域，作为仅运行时的备用方案
             dialog.innerHTML = `
                 <div class="dialog-header">
                     <h3 id="download-dialog-title">Download Copernicus Product</h3>
                 </div>
                 <div class="sentinel1-download-info">
-                    <p>Download the complete product as a ZIP file from Copernicus Data Space.</p>
-                    <p class="size-hint">Product size varies by type (typically 100 MB - 8 GB)</p>
+                    <p>Download the complete product from Copernicus Data Space.</p>
+                    <p class="size-hint">Product size varies by type (typically tens of MB to several GB)</p>
+                </div>
+                <div class="copernicus-credentials">
+                    <h4>Copernicus Credentials (runtime only)</h4>
+                    <p class="size-hint">
+                        Credentials are used only in this browser session and are not stored in static assets.
+                        You can also inject them via <code>window.COPERNICUS_USERNAME</code> and <code>window.COPERNICUS_PASSWORD</code>.
+                    </p>
+                    <div class="form-group">
+                        <label for="copernicus-username-input">Username</label>
+                        <input type="text" id="copernicus-username-input" autocomplete="username" placeholder="your_username">
+                    </div>
+                    <div class="form-group">
+                        <label for="copernicus-password-input">Password</label>
+                        <input type="password" id="copernicus-password-input" autocomplete="current-password" placeholder="your_password">
+                    </div>
                 </div>
                 <div id="zip-status" class="zip-status" aria-live="polite"></div>
                 <div class="zip-progress-row hidden" id="zip-progress-row">
@@ -1126,15 +1143,15 @@ export class UIController {
                 <div class="dialog-actions sentinel1-actions-simple">
                     <button class="download-btn" id="download-zip" title="Download full product from Copernicus Data Space">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        Download ZIP
+                        Download
                     </button>
                     <button class="download-btn" id="stop-download" disabled>Stop</button>
                     <button class="download-btn secondary" id="close-download">Close</button>
                 </div>
             `;
         } else {
-            // Full dialog for other providers
-            // 其他提供商的完整对话框
+            // Full dialog for other datasets (including non-Sentinel-1 collections from Copernicus)
+            // 其他数据集的完整对话框（包括 Copernicus 中的非 Sentinel-1 集合）
             dialog.innerHTML = `
                 <div class="dialog-header">
                     <h3 id="download-dialog-title">Select assets to download</h3>
@@ -1160,14 +1177,14 @@ export class UIController {
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
 
-        this._setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, isCopernicus);
+        this._setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, hasCopernicusFullZip);
     }
 
     /**
      * Setup download dialog events
      * 设置下载对话框事件
      */
-    _setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, isCopernicus) {
+    _setupDownloadDialogEvents(dialog, overlay, candidates, provider, item, hasCopernicusFullZip) {
         const dialogState = {
             directoryHandle: null,
             dlAbortController: null,
@@ -1233,6 +1250,74 @@ export class UIController {
             }
         };
 
+        /**
+         * Ensure Copernicus credentials are available before starting ZIP download.
+         * 在开始 ZIP 下载前确保 Copernicus 凭证可用。
+         *
+         * Primary path still uses runtime injection via window globals.
+         * 主路径仍然通过 window 全局变量进行运行时注入。
+         *
+         * As a fallback, read credentials from the inline inputs in this dialog
+         * and assign them to window.COPERNICUS_USERNAME / window.COPERNICUS_PASSWORD
+         * for the current session only.
+         * 作为备用方案，从当前对话框中的输入框读取凭证，并仅在本次会话中
+         * 赋值给 window.COPERNICUS_USERNAME / window.COPERNICUS_PASSWORD。
+         */
+        const ensureCopernicusCredentialsForDownload = () => {
+            // If API layer already sees credentials, nothing to do.
+            // 如果 API 层已经检测到凭证，则无需处理。
+            try {
+                if (isCopernicusDownloadAvailable()) {
+                    return true;
+                }
+            } catch {
+                // If check fails, continue to local fallback.
+                // 如果检查失败，继续走本地备用逻辑。
+            }
+
+            const usernameInput = /** @type {HTMLInputElement|null} */ (dialog.querySelector('#copernicus-username-input'));
+            const passwordInput = /** @type {HTMLInputElement|null} */ (dialog.querySelector('#copernicus-password-input'));
+
+            if (!usernameInput || !passwordInput) {
+                alert('Copernicus credentials not configured. Please set window.COPERNICUS_USERNAME and window.COPERNICUS_PASSWORD before downloading.');
+                return false;
+            }
+
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!username || !password) {
+                updateZipStatus('Please enter Copernicus username and password.', true);
+                (username ? passwordInput : usernameInput).focus();
+                return false;
+            }
+
+            try {
+                if (typeof window !== 'undefined') {
+                    /** @type {any} */ (window).COPERNICUS_USERNAME = username;
+                    /** @type {any} */ (window).COPERNICUS_PASSWORD = password;
+                }
+            } catch (e) {
+                console.error('Failed to set Copernicus credentials on window:', e);
+                alert('Failed to apply Copernicus credentials in this browser session.');
+                return false;
+            }
+
+            // Final sanity check – if still not available, abort.
+            // 最终检查 - 如果仍不可用，则中止。
+            try {
+                if (!isCopernicusDownloadAvailable()) {
+                    updateZipStatus('Copernicus credentials were not accepted. Please verify and try again.', true);
+                    return false;
+                }
+            } catch {
+                // If check fails unexpectedly, allow the download to continue using window values.
+                // 如果检查出现异常，允许继续使用 window 上的值尝试下载。
+            }
+
+            return true;
+        };
+
         // Row selection / 行选择
         dialog.querySelectorAll('.asset-row').forEach(row => {
             const checkbox = row.querySelector('.asset-check');
@@ -1273,7 +1358,8 @@ export class UIController {
         const zipBtn = dialog.querySelector('#download-zip');
         stopBtn.disabled = true;
 
-        // Copernicus Full Product Download Handler / Copernicus 完整产品下载处理
+        // Copernicus Full Product Download Handler (used for Sentinel-1 full products)
+        // Copernicus 完整产品下载处理（用于 Sentinel-1 完整产品）
         const doCopernicusDownload = async () => {
             // Confirm large download / 确认大文件下载
             if (!confirm('Copernicus products can be large (100 MB - 8 GB).\nThis download may take a while.\n\nContinue?')) {
@@ -1325,10 +1411,11 @@ export class UIController {
             }
         };
 
-        // ZIP button click handler - for Copernicus Data Space products
-        // ZIP 按钮点击处理 - 用于 Copernicus Data Space 产品
-        if (isCopernicus && zipBtn) {
+        // ZIP button click handler - Copernicus full product via Copernicus Data Space
+        // ZIP 按钮点击处理 - 通过 Copernicus Data Space 下载完整产品
+        if (hasCopernicusFullZip && zipBtn) {
             addTrackedListener(zipBtn, 'click', () => {
+                if (!ensureCopernicusCredentialsForDownload()) return;
                 doCopernicusDownload();
             });
         }

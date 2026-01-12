@@ -1523,6 +1523,18 @@ body {
     font-size: 0.85rem;
     color: var(--text-secondary, #5a6c7d);
 }
+.copernicus-credentials {
+    margin: 0.5rem 0 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color);
+}
+.copernicus-credentials h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.95rem;
+}
+.copernicus-credentials .form-group {
+    margin-bottom: 0.6rem;
+}
 .sentinel1-actions-simple {
     display: flex;
     justify-content: center;

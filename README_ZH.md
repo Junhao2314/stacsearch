@@ -130,6 +130,8 @@ window.COPERNICUS_PASSWORD = 'your_password';
 
 注意：出于安全考虑，Copernicus 凭证仅通过运行时注入方式接受，防止被打包进静态资源。
 
+如果没有预先配置凭证，Copernicus 下载对话框中也提供了一个仅在当前会话生效的小型设置区域，可以直接输入用户名和密码。输入的值会在运行时赋给 `window.COPERNICUS_USERNAME` / `window.COPERNICUS_PASSWORD`，只保存在当前浏览器会话内，不会写入任何静态文件或持久存储。
+
 ### 可选环境变量
 
 - `VITE_PC_SUBSCRIPTION_KEY`：Microsoft Planetary Computer 订阅密钥，可获得更高的 API 速率限制
