@@ -132,6 +132,8 @@ window.COPERNICUS_PASSWORD = 'your_password';
 
 如果没有预先配置凭证，Copernicus 下载对话框中也提供了一个仅在当前会话生效的小型设置区域，可以直接输入用户名和密码。输入的值会在运行时赋给 `window.COPERNICUS_USERNAME` / `window.COPERNICUS_PASSWORD`，只保存在当前浏览器会话内，不会写入任何静态文件或持久存储。
 
+GitHub Pages：仓库自带的部署工作流支持从 GitHub Secrets（`VITE_COPERNICUS_USERNAME`、`VITE_COPERNICUS_PASSWORD`）生成 `dist/runtime-config.js`，从而在运行时自动注入凭证。安全提醒：如果 GitHub Pages 站点是公开的，这些值仍会出现在部署后的静态文件中，访客可见。
+
 ### 可选环境变量
 
 - `VITE_PC_SUBSCRIPTION_KEY`：Microsoft Planetary Computer 订阅密钥，可获得更高的 API 速率限制

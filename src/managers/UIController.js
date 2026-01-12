@@ -1108,18 +1108,15 @@ export class UIController {
         // Different dialog content for Copernicus full product vs regular asset downloads
         // Copernicus 完整产品与普通资源下载使用不同的对话框内容
         if (hasCopernicusFullZip) {
-            // Simplified dialog for Copernicus full product
-            // Copernicus 完整产品简化对话框
-            // Includes an inline credential configuration section as a runtime-only fallback
-            // 同时包含一个内联凭证配置区域，作为仅运行时的备用方案
-            dialog.innerHTML = `
-                <div class="dialog-header">
-                    <h3 id="download-dialog-title">Download Copernicus Product</h3>
-                </div>
-                <div class="sentinel1-download-info">
-                    <p>Download the complete product from Copernicus Data Space.</p>
-                    <p class="size-hint">Product size varies by type (typically tens of MB to several GB)</p>
-                </div>
+            const hasCopernicusCreds = (() => {
+                try {
+                    return isCopernicusDownloadAvailable();
+                } catch {
+                    return false;
+                }
+            })();
+
+            const copernicusCredentialsSection = hasCopernicusCreds ? '' : `
                 <div class="copernicus-credentials">
                     <h4>Copernicus Credentials (runtime only)</h4>
                     <p class="size-hint">
@@ -1135,6 +1132,22 @@ export class UIController {
                         <input type="password" id="copernicus-password-input" autocomplete="current-password" placeholder="your_password">
                     </div>
                 </div>
+            `;
+
+            // Simplified dialog for Copernicus full product
+            // Copernicus 完整产品简化对话框
+            // Includes an inline credential configuration section as a runtime-only fallback
+            // 同时包含一个内联凭证配置区域，作为仅运行时的备用方案
+            dialog.innerHTML = `
+                <div class="dialog-header">
+                    <h3 id="download-dialog-title">Download Copernicus Product</h3>
+                </div>
+                <div class="sentinel1-download-info">
+                    <p>Download the complete product from Copernicus Data Space.</p>
+                    <p class="size-hint">Product size varies by type (typically tens of MB to several GB)</p>
+                    <p class="size-hint">Need an account? Register at <a href="https://dataspace.copernicus.eu/" target="_blank" rel="noopener noreferrer">https://dataspace.copernicus.eu/</a>.</p>
+                </div>
+                ${copernicusCredentialsSection}
                 <div id="zip-status" class="zip-status" aria-live="polite"></div>
                 <div class="zip-progress-row hidden" id="zip-progress-row">
                     <div class="progress-bar"><div class="bar" id="zip-progress-bar"></div></div>

@@ -132,6 +132,8 @@ Note: For security reasons, Copernicus credentials are only accepted via runtime
 
 If credentials are not preconfigured, the Copernicus download dialog also provides a small runtime-only form where you can enter the username and password directly. These values are applied to `window.COPERNICUS_USERNAME` / `window.COPERNICUS_PASSWORD` for the current browser session only and are never persisted to disk.
 
+GitHub Pages: The included workflow can generate `dist/runtime-config.js` from GitHub repository secrets (`VITE_COPERNICUS_USERNAME`, `VITE_COPERNICUS_PASSWORD`) to prefill credentials at runtime. Security warning: on a public GitHub Pages site, these values are still visible to visitors in the deployed files.
+
 ### Optional Environment Variables
 
 - `VITE_PC_SUBSCRIPTION_KEY`: Microsoft Planetary Computer subscription key for higher rate limits
