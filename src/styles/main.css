@@ -1389,6 +1389,10 @@ body {
     box-shadow: var(--shadow-md, 0 10px 30px rgba(0,0,0,0.2));
     padding: 1rem 1rem 1.25rem;
 }
+.download-dialog.download-dialog-copernicus {
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+}
 .download-dialog h3 {
     margin: 0 0 0.5rem 0;
 }

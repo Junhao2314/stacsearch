@@ -1087,7 +1087,7 @@ export class UIController {
         overlay.setAttribute('aria-labelledby', 'download-dialog-title');
 
         const dialog = document.createElement('div');
-        dialog.className = 'download-dialog';
+        dialog.className = hasCopernicusFullZip ? 'download-dialog download-dialog-copernicus' : 'download-dialog';
 
         const supportsDirPicker = typeof window.showDirectoryPicker === 'function';
 
@@ -1115,6 +1115,10 @@ export class UIController {
                     return false;
                 }
             })();
+
+            const copernicusRegisterHint = hasCopernicusCreds ? '' : `
+                <p class="size-hint">Need an account? Register at <a href="https://dataspace.copernicus.eu/" target="_blank" rel="noopener noreferrer">https://dataspace.copernicus.eu/</a>.</p>
+            `;
 
             const copernicusCredentialsSection = hasCopernicusCreds ? '' : `
                 <div class="copernicus-credentials">
@@ -1145,7 +1149,7 @@ export class UIController {
                 <div class="sentinel1-download-info">
                     <p>Download the complete product from Copernicus Data Space.</p>
                     <p class="size-hint">Product size varies by type (typically tens of MB to several GB)</p>
-                    <p class="size-hint">Need an account? Register at <a href="https://dataspace.copernicus.eu/" target="_blank" rel="noopener noreferrer">https://dataspace.copernicus.eu/</a>.</p>
+                    ${copernicusRegisterHint}
                 </div>
                 ${copernicusCredentialsSection}
                 <div id="zip-status" class="zip-status" aria-live="polite"></div>
